@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة تحكم زاجل</title>
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@700&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --night:#1B1B3A; --dusk:#3D3A6B; --amber:#E8A33D; --cream:#F7F3EA;
+    --danger:#C1543C; --ok:#4A6741;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Tajawal',sans-serif; background:var(--night); color:var(--cream); min-height:100vh;}
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:16px 26px; border-bottom:1px solid rgba(255,255,255,.08); background:#161535; position:sticky; top:0; z-index:10;}
+  .logo{font-family:'Aref Ruqaa',serif; font-size:22px; color:var(--amber);}
+  .wrap{max-width:1000px; margin:0 auto; padding:26px;}
+  .card{background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:16px; padding:20px; margin-bottom:20px;}
+  h2{font-family:'Aref Ruqaa',serif; font-size:19px; margin-bottom:14px; color:var(--amber);}
+  input, select{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.16); color:var(--cream); border-radius:10px; padding:10px 12px; font-family:'Tajawal'; font-size:13.5px; width:100%; margin-bottom:10px;}
+  button{font-family:'Tajawal'; font-weight:700; border:none; border-radius:10px; padding:10px 18px; cursor:pointer; font-size:13px;}
+  .btn-primary{background:linear-gradient(135deg,var(--amber),#d98a2b); color:#241a05;}
+  .btn-ghost{background:rgba(255,255,255,.08); color:var(--cream);}
+  .btn-danger{background:rgba(193,84,60,.2); color:#ffb3a0; border:1px solid rgba(193,84,60,.4);}
+  .btn-sm{padding:6px 12px; font-size:11.5px;}
+  .stats-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px;}
+  .stat-box{background:rgba(232,163,61,.08); border:1px solid rgba(232,163,61,.25); border-radius:14px; padding:16px; text-align:center;}
+  .stat-num{font-family:'Aref Ruqaa'; font-size:28px; color:var(--amber);}
+  .stat-lbl{font-size:11px; color:#A7A3CC; margin-top:4px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{padding:9px 8px; text-align:right; border-bottom:1px solid rgba(255,255,255,.08); white-space:nowrap;}
+  th{color:#A7A3CC; font-weight:700; font-size:11.5px;}
+  tr:hover{background:rgba(255,255,255,.03);}
+  .badge{padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700;}
+  .badge-admin{background:rgba(232,163,61,.2); color:var(--amber);}
+  .badge-premium{background:rgba(184,142,232,.2); color:#c9a8ec;}
+  .badge-banned{background:rgba(193,84,60,.2); color:#ffb3a0;}
+  .badge-ok{background:rgba(74,103,65,.3); color:#8fce7a;}
+  .table-wrap{overflow-x:auto;}
+  .login-box{max-width:380px; margin:80px auto; text-align:center;}
+  .login-box .logo{font-size:30px; display:block; margin-bottom:20px;}
+  .hidden{display:none;}
+  .row-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .msg{font-size:12.5px; padding:10px 14px; border-radius:10px; margin-bottom:14px;}
+  .msg-error{background:rgba(193,84,60,.15); border:1px solid rgba(193,84,60,.4); color:#ffb3a0;}
+  .msg-ok{background:rgba(74,103,65,.2); border:1px solid rgba(74,103,65,.5); color:#a8e090;}
+  .product-row{display:grid; grid-template-columns:2fr 1fr 1fr 90px 90px; gap:8px; align-items:center; margin-bottom:8px;}
+  .product-row input{margin-bottom:0;}
+  .toggle-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen" class="login-box">
+  <span class="logo">🕊️ لوحة تحكم زاجل</span>
+  <div id="loginMsg"></div>
+  <input type="text" id="serverUrl" placeholder="رابط الخادم (https://your-app.onrender.com)">
+  <input type="email" id="loginEmail" placeholder="البريد الإلكتروني">
+  <input type="password" id="loginPassword" placeholder="كلمة المرور">
+  <button class="btn-primary" style="width:100%; padding:13px;" onclick="doLogin()">دخول لوحة التحكم</button>
+  <p style="font-size:11px; color:#8f8bb8; margin-top:14px; line-height:1.7;">هذه اللوحة مخصصة لصاحب التطبيق فقط. أول حساب يُسجَّل على الخادم يصبح أدمن تلقائياً — سجّل دخولك بنفس بيانات ذلك الحساب.</p>
+</div>
+
+<div id="dashboard" class="hidden">
+  <div class="topbar">
+    <span class="logo">🕊️ لوحة تحكم زاجل</span>
+    <div>
+      <span id="adminName" style="font-size:13px; margin-left:14px;"></span>
+      <button class="btn-ghost btn-sm" onclick="logout()">خروج</button>
+    </div>
+  </div>
+  <div class="wrap">
+
+    <div class="card">
+      <h2>📊 نظرة عامة</h2>
+      <div class="stats-grid" id="statsGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>👥 المستخدمون</h2>
+      <input type="text" id="userSearch" placeholder="ابحث بالاسم أو البريد..." oninput="renderUsersTable()">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>الاسم</th><th>البريد</th><th>الرصيد</th><th>السمعة</th><th>الحالة</th><th>إجراءات</th></tr></thead>
+          <tbody id="usersTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🚩 البلاغات</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>المُبلِغ</th><th>الشخص المُبلَّغ عنه</th><th>السبب</th><th>تفاصيل</th><th>التاريخ</th><th>الحالة</th><th>إجراء</th></tr></thead>
+          <tbody id="reportsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🛍️ إدارة المتجر</h2>
+      <div class="toggle-row">
+        <span>المتجر مفعّل</span>
+        <input type="checkbox" id="storeEnabledToggle" style="width:auto;" onchange="toggleStoreEnabled()">
+      </div>
+      <div id="productsEditor"></div>
+      <button class="btn-ghost btn-sm" onclick="addProductRow()">+ إضافة منتج</button>
+      <div style="margin-top:14px;"><button class="btn-primary" onclick="saveProducts()">حفظ تغييرات المتجر</button></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let API_BASE = localStorage.getItem('zajal_admin_api') || '';
+let TOKEN = localStorage.getItem('zajal_admin_token') || '';
+let allUsers = [];
+let allProducts = [];
+
+document.getElementById('serverUrl').value = API_BASE;
+
+async function apiFetch(path, opts={}){
+  const res = await fetch(API_BASE + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({'Content-Type':'application/json'}, TOKEN?{'Authorization':'Bearer '+TOKEN}:{}),
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error || 'خطأ في الطلب');
+  return data;
+}
+
+async function doLogin(){
+  API_BASE = document.getElementById('serverUrl').value.trim().replace(/\/+$/,'');
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const msgEl = document.getElementById('loginMsg');
+  msgEl.innerHTML = '';
+  if(!API_BASE || !email || !password){
+    msgEl.innerHTML = '<div class="msg msg-error">أدخل رابط الخادم والبريد وكلمة المرور</div>';
+    return;
+  }
+  try{
+    const res = await fetch(API_BASE + '/api/auth/login', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'فشل الدخول');
+    if(!data.user.isAdmin){
+      msgEl.innerHTML = '<div class="msg msg-error">هذا الحساب ليس أدمن — سجّل بحساب صاحب التطبيق (أول من سجّل على هذا الخادم)</div>';
+      return;
+    }
+    TOKEN = data.token;
+    localStorage.setItem('zajal_admin_api', API_BASE);
+    localStorage.setItem('zajal_admin_token', TOKEN);
+    document.getElementById('adminName').textContent = '👑 ' + data.user.name;
+    showDashboard();
+  }catch(e){
+    msgEl.innerHTML = `<div class="msg msg-error">${e.message}</div>`;
+  }
+}
+function logout(){
+  localStorage.removeItem('zajal_admin_token');
+  TOKEN='';
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('loginScreen').classList.remove('hidden');
+}
+async function showDashboard(){
+  document.getElementById('loginScreen').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  await loadStats();
+  await loadUsers();
+  await loadReports();
+  await loadProducts();
+}
+if(API_BASE && TOKEN){ showDashboard().catch(()=>{ logout(); }); }
+
+async function loadStats(){
+  try{
+    const data = await apiFetch('/api/admin/stats');
+    const grid = document.getElementById('statsGrid');
+    const items = [
+      ['👥','totalUsers','إجمالي المستخدمين'],
+      ['⭐','premiumUsers','مشتركون مميزون'],
+      ['🚫','bannedUsers','محظورون'],
+      ['💬','totalChats','المحادثات'],
+      ['✉️','totalMessages','الرسائل'],
+      ['🆕','newUsersLast7Days','مستخدمون جدد (7 أيام)']
+    ];
+    grid.innerHTML = items.map(([icon,key,lbl])=>`
+      <div class="stat-box"><div class="stat-num">${icon} ${data[key]}</div><div class="stat-lbl">${lbl}</div></div>
+    `).join('');
+  }catch(e){ alert('خطأ تحميل الإحصائيات: '+e.message); }
+}
+
+async function loadUsers(){
+  try{
+    const data = await apiFetch('/api/admin/users');
+    allUsers = data.users;
+    renderUsersTable();
+  }catch(e){ alert('خطأ تحميل المستخدمين: '+e.message); }
+}
+function renderUsersTable(){
+  const q = document.getElementById('userSearch').value.trim().toLowerCase();
+  const body = document.getElementById('usersTableBody');
+  const filtered = allUsers.filter(u => !q || u.name.toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q));
+  body.innerHTML = filtered.map(u=>`
+    <tr>
+      <td>${u.name}</td>
+      <td>${u.email||'—'}</td>
+      <td>${u.balance}</td>
+      <td>${u.reputation}</td>
+      <td>
+        ${u.isAdmin?'<span class="badge badge-admin">أدمن</span>':''}
+        ${u.isPremium?'<span class="badge badge-premium">مميز</span>':''}
+        ${u.banned?'<span class="badge badge-banned">محظور</span>':'<span class="badge badge-ok">نشط</span>'}
+      </td>
+      <td class="row-actions">
+        <button class="btn-ghost btn-sm" onclick="editRep('${u.id}')">± سمعة</button>
+        <button class="btn-ghost btn-sm" onclick="togglePremiumAdmin('${u.id}', ${!u.isPremium})">${u.isPremium?'إلغاء مميز':'منح مميز'}</button>
+        <button class="btn-ghost btn-sm" onclick="toggleBan('${u.id}', ${!u.banned})">${u.banned?'فك الحظر':'حظر'}</button>
+        <button class="btn-danger btn-sm" onclick="deleteUser('${u.id}')">حذف</button>
+      </td>
+    </tr>
+  `).join('');
+}
+async function editRep(id){
+  const val = prompt('أدخل قيمة السمعة الجديدة (0-100):');
+  if(val===null) return;
+  const num = parseInt(val);
+  if(isNaN(num)) return;
+  try{
+    await apiFetch('/api/admin/users/'+id, {method:'PATCH', body:{reputation: Math.max(0,Math.min(100,num))}});
+    await loadUsers();
+  }catch(e){ alert(e.message); }
+}
+async function togglePremiumAdmin(id, val){
+  try{ await apiFetch('/api/admin/users/'+id, {method:'PATCH', body:{isPremium: val}}); await loadUsers(); }
+  catch(e){ alert(e.message); }
+}
+async function toggleBan(id, val){
+  try{ await apiFetch('/api/admin/users/'+id, {method:'PATCH', body:{banned: val}}); await loadUsers(); }
+  catch(e){ alert(e.message); }
+}
+async function deleteUser(id){
+  if(!confirm('حذف هذا المستخدم نهائياً مع كل محادثاته؟ لا يمكن التراجع.')) return;
+  try{ await apiFetch('/api/admin/users/'+id, {method:'DELETE'}); await loadUsers(); await loadStats(); }
+  catch(e){ alert(e.message); }
+}
+
+let allReports = [];
+async function loadReports(){
+  try{
+    const data = await apiFetch('/api/admin/reports');
+    allReports = data.reports;
+    renderReportsTable();
+  }catch(e){ alert('خطأ تحميل البلاغات: '+e.message); }
+}
+function renderReportsTable(){
+  const body = document.getElementById('reportsTableBody');
+  if(allReports.length===0){
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#8f8bb8; padding:20px;">لا توجد بلاغات حالياً</td></tr>';
+    return;
+  }
+  body.innerHTML = allReports.map(r=>`
+    <tr>
+      <td>${r.reporterName}</td>
+      <td>${r.targetName||'—'}</td>
+      <td>${r.reason}</td>
+      <td style="max-width:180px; white-space:normal;">${r.details||'—'}</td>
+      <td>${new Date(r.createdAt).toLocaleDateString('ar')}</td>
+      <td>${r.resolved?'<span class="badge badge-ok">تمت المعالجة</span>':'<span class="badge badge-banned">قيد المراجعة</span>'}</td>
+      <td><button class="btn-ghost btn-sm" onclick="toggleReportResolved('${r.id}', ${!r.resolved})">${r.resolved?'إعادة فتح':'وضع كمُعالَج'}</button></td>
+    </tr>
+  `).join('');
+}
+async function toggleReportResolved(id, val){
+  try{ await apiFetch('/api/admin/reports/'+id, {method:'PATCH', body:{resolved: val}}); await loadReports(); }
+  catch(e){ alert(e.message); }
+}
+async function loadProducts(){
+  try{
+    const data = await apiFetch('/api/admin/config');
+    allProducts = data.config.products;
+    document.getElementById('storeEnabledToggle').checked = data.config.storeEnabled;
+    renderProductsEditor();
+  }catch(e){ alert('خطأ تحميل المتجر: '+e.message); }
+}
+function renderProductsEditor(){
+  const wrap = document.getElementById('productsEditor');
+  wrap.innerHTML = allProducts.map((p,i)=>`
+    <div class="product-row">
+      <input value="${p.name}" onchange="allProducts[${i}].name=this.value">
+      <input value="${p.grantType}" onchange="allProducts[${i}].grantType=this.value" placeholder="النوع">
+      <input type="number" value="${p.qty||p.days||1}" onchange="allProducts[${i}][${p.grantType==='premium'?"'days'":"'qty'"}]=parseInt(this.value)">
+      <input type="number" step="0.01" value="${p.price}" onchange="allProducts[${i}].price=parseFloat(this.value)">
+      <button class="btn-danger btn-sm" onclick="removeProductRow(${i})">حذف</button>
+    </div>
+  `).join('');
+}
+function addProductRow(){
+  allProducts.push({id:'custom_'+Date.now(), name:'منتج جديد', grantType:'سريعة', qty:1, price:1.99, emoji:'🕊️'});
+  renderProductsEditor();
+}
+function removeProductRow(i){
+  allProducts.splice(i,1);
+  renderProductsEditor();
+}
+async function saveProducts(){
+  try{
+    await apiFetch('/api/admin/config', {method:'PATCH', body:{products: allProducts}});
+    alert('تم حفظ تغييرات المتجر بنجاح');
+  }catch(e){ alert(e.message); }
+}
+async function toggleStoreEnabled(){
+  const val = document.getElementById('storeEnabledToggle').checked;
+  try{ await apiFetch('/api/admin/config', {method:'PATCH', body:{storeEnabled: val}}); }
+  catch(e){ alert(e.message); }
+}
+</script>
+</body>
+</html>

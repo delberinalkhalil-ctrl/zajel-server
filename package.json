@@ -1,0 +1,19 @@
+{
+  "name": "hamam-alzajal-api",
+  "version": "1.0.0",
+  "description": "الخادم الخلفي الحقيقي لتطبيق حمام الزاجل - REST API مع مصادقة JWT وقاعدة بيانات",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "lowdb": "^1.0.0",
+    "nanoid": "^3.3.7"
+  }
+}
