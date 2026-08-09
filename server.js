@@ -11,12 +11,41 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const twilio = require('twilio');
 const { nanoid } = require('nanoid');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'hamam-alzajal-dev-secret-غيّر-هذا-في-الإنتاج';
+
+// ---------- إعدادات Twilio لإرسال رموز التحقق عبر واتساب ----------
+const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || '';
+const TWILIO_AUTH = process.env.TWILIO_AUTH_TOKEN || '';
+const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886'; // رقم Sandbox الافتراضي من Twilio للتجربة
+const twilioClient = (TWILIO_SID && TWILIO_AUTH) ? twilio(TWILIO_SID, TWILIO_AUTH) : null;
+
+function normalizePhone(raw) {
+  const digits = (raw || '').replace(/[^\d+]/g, '');
+  if (!digits.startsWith('+')) return null;
+  if (digits.length < 8 || digits.length > 16) return null;
+  return digits;
+}
+
+async function sendWhatsappOtp(phone, code) {
+  if (!twilioClient) {
+    // لا يوجد حساب Twilio مُهيّأ بعد على هذا الخادم — نطبع الرمز بسجلات الخادم
+    // فقط لأغراض التطوير/الاختبار، ولا نفشل الطلب حتى يقدر المطور يكمل الاختبار.
+    console.log(`⚠️ [وضع تجريبي بدون Twilio] رمز التحقق لـ ${phone}: ${code}`);
+    return { simulated: true };
+  }
+  await twilioClient.messages.create({
+    from: TWILIO_WHATSAPP_FROM,
+    to: `whatsapp:${phone}`,
+    body: `🕊️ رمز التحقق الخاص بك في تطبيق زاجل هو: ${code}\nصالح لمدة 10 دقائق.`
+  });
+  return { simulated: false };
+}
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ---------- قاعدة البيانات ----------
@@ -30,7 +59,7 @@ const DEFAULT_PRODUCTS = [
   { id: 'premium_month', name: 'اشتراك مميز - شهر كامل 👑', grantType: 'premium', days: 30, price: 9.99, emoji: '👑' }
 ];
 db.defaults({
-  users: [], chats: [], reports: [],
+  users: [], chats: [], reports: [], otps: [],
   config: {
     products: DEFAULT_PRODUCTS,
     storeEnabled: true,
@@ -66,8 +95,8 @@ function checkDailyReset(user) {
 }
 
 function publicUser(user) {
-  const { id, name, email, avatar, bio, hobbies, reputation, balance, lastReset, inventory, filters, hintsEnabled, homeRegion, isAdmin, isPremium, premiumUntil, banned, createdAt, claimedLaunchPromo } = user;
-  return { id, name, email, avatar, bio, hobbies, reputation, balance, lastReset, inventory, filters, hintsEnabled, homeRegion, isAdmin: !!isAdmin, isPremium: !!isPremium, premiumUntil, banned: !!banned, createdAt, claimedLaunchPromo: !!claimedLaunchPromo };
+  const { id, name, email, phone, avatar, bio, hobbies, reputation, balance, lastReset, inventory, filters, hintsEnabled, homeRegion, isAdmin, isPremium, premiumUntil, banned, createdAt, claimedLaunchPromo } = user;
+  return { id, name, email, phone, avatar, bio, hobbies, reputation, balance, lastReset, inventory, filters, hintsEnabled, homeRegion, isAdmin: !!isAdmin, isPremium: !!isPremium, premiumUntil, banned: !!banned, createdAt, claimedLaunchPromo: !!claimedLaunchPromo };
 }
 
 // ---------- تطبيق Express ----------
@@ -96,6 +125,71 @@ function requireAdmin(req, res, next) {
 }
 
 // ---------- المصادقة ----------
+// ============ التسجيل/الدخول برقم الهاتف عبر رمز واتساب (الطريقة المبسّطة) ============
+// الحساب مرتبط برقم الهاتف نفسه، فحتى لو حُذف التطبيق وأُعيد تثبيته، بمجرد
+// التحقق من نفس الرقم يرجع نفس الحساب تلقائياً بكل بياناته ومحادثاته.
+app.post('/api/auth/request-otp', async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+  if (!phone) return res.status(400).json({ error: 'رقم الجوال غير صالح — أدخله مع رمز الدولة، مثال: ‎+9665xxxxxxxx' });
+
+  const existing = db.get('otps').find({ phone }).value();
+  if (existing && Date.now() - existing.createdAt < 60 * 1000) {
+    return res.status(429).json({ error: 'انتظر قليلاً قبل طلب رمز جديد' });
+  }
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const record = { phone, code, attempts: 0, createdAt: Date.now(), expiresAt: Date.now() + 10 * 60 * 1000 };
+  if (existing) db.get('otps').find({ phone }).assign(record).write();
+  else db.get('otps').push(record).write();
+
+  try {
+    const result = await sendWhatsappOtp(phone, code);
+    res.json({ ok: true, simulated: result.simulated });
+  } catch (e) {
+    res.status(500).json({ error: 'تعذر إرسال رسالة واتساب — تحقق من إعدادات Twilio بالخادم' });
+  }
+});
+
+app.post('/api/auth/verify-otp', async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+  const code = (req.body.code || '').trim();
+  if (!phone || !code) return res.status(400).json({ error: 'أدخل رقم الجوال والرمز' });
+
+  const otpRef = db.get('otps').find({ phone });
+  const otp = otpRef.value();
+  if (!otp) return res.status(400).json({ error: 'اطلب رمز التحقق أولاً' });
+  if (Date.now() > otp.expiresAt) { otpRef.assign({}).write(); db.get('otps').remove({ phone }).write(); return res.status(400).json({ error: 'انتهت صلاحية الرمز، اطلب رمزاً جديداً' }); }
+  if (otp.attempts >= 5) { db.get('otps').remove({ phone }).write(); return res.status(400).json({ error: 'محاولات كثيرة خاطئة، اطلب رمزاً جديداً' }); }
+  if (otp.code !== code) {
+    otpRef.assign({ attempts: otp.attempts + 1 }).write();
+    return res.status(400).json({ error: 'الرمز غير صحيح' });
+  }
+  db.get('otps').remove({ phone }).write();
+
+  let user = db.get('users').find({ phone }).value();
+  let isNewUser = false;
+  if (!user) {
+    isNewUser = true;
+    const isFirstUser = db.get('users').size().value() === 0;
+    user = {
+      id: nanoid(), name: 'مستخدم ' + phone.slice(-4), email: null, phone,
+      passwordHash: null, isAdmin: isFirstUser, banned: false,
+      avatar: '😊', bio: '', hobbies: [],
+      reputation: 87, balance: 10, lastReset: Date.now(),
+      inventory: defaultInventory(),
+      filters: { ageMin: 20, ageMax: 35, interestedIn: 'الكل' },
+      homeRegion: 'الشرق الأوسط', hintsEnabled: true,
+      isPremium: false, premiumUntil: null, claimedLaunchPromo: false, friendIds: [],
+      createdAt: Date.now()
+    };
+    db.get('users').push(user).write();
+  }
+  if (user.banned) return res.status(403).json({ error: 'هذا الحساب محظور' });
+
+  const token = jwt.sign({ uid: user.id }, JWT_SECRET, { expiresIn: '365d' });
+  res.json({ token, user: publicUser(user), isNewUser });
+});
+
 app.post('/api/auth/register', async (req, res) => {
   const name = (req.body.name || '').trim();
   const email = (req.body.email || '').trim().toLowerCase();
@@ -127,6 +221,8 @@ app.post('/api/auth/register', async (req, res) => {
     isPremium: false,
     premiumUntil: null,
     claimedLaunchPromo: false,
+    friendIds: [],
+    phone: null,
     createdAt: Date.now()
   };
   db.get('users').push(user).write();
@@ -261,7 +357,7 @@ app.post('/api/chats/:id/respond', authMiddleware, (req, res) => {
 // ---------- المحادثات ----------
 app.get('/api/chats', authMiddleware, (req, res) => {
   const chats = db.get('chats')
-    .filter(c => c.status === 'active' && c.participants.includes(req.user.id))
+    .filter(c => c.status === 'active' && c.participants.includes(req.user.id) && !(c.hiddenFor || []).includes(req.user.id))
     .sortBy('createdAt').reverse()
     .value();
   res.json({ chats });
@@ -271,6 +367,52 @@ app.get('/api/chats/:id', authMiddleware, (req, res) => {
   const chat = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id)).value();
   if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
   res.json({ chat });
+});
+
+app.delete('/api/chats/:id', authMiddleware, (req, res) => {
+  const chatRef = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id));
+  const chat = chatRef.value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  const hiddenFor = new Set(chat.hiddenFor || []);
+  hiddenFor.add(req.user.id);
+  // لو الطرفان حذفا المحادثة، نحذفها نهائياً من قاعدة البيانات لتوفير المساحة
+  if (chat.participants.every(pid => hiddenFor.has(pid))) {
+    db.get('chats').remove({ id: chat.id }).write();
+  } else {
+    chatRef.assign({ hiddenFor: [...hiddenFor] }).write();
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/chats/:id/gift', authMiddleware, (req, res) => {
+  const { type } = req.body;
+  if (!PIGEON_TYPES.includes(type)) return res.status(400).json({ error: 'نوع حمامة غير معروف' });
+  const chat = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id) && c.status === 'active').value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  const sender = req.user;
+  const recipientId = chat.participants.find(pid => pid !== req.user.id);
+  const recipientRef = db.get('users').find({ id: recipientId });
+  const recipient = recipientRef.value();
+  if (!recipient) return res.status(404).json({ error: 'المستلم غير موجود' });
+
+  if (type === 'عادية') {
+    if (sender.balance <= 0) return res.status(400).json({ error: 'لا يوجد رصيد كافٍ للإهداء' });
+    sender.balance -= 1;
+    recipient.balance += 1;
+  } else {
+    if ((sender.inventory[type] || 0) <= 0) return res.status(400).json({ error: `لا تملك حمام من نوع ${type}` });
+    sender.inventory[type] -= 1;
+    recipient.inventory[type] = (recipient.inventory[type] || 0) + 1;
+  }
+  db.get('users').find({ id: sender.id }).assign(sender).write();
+  recipientRef.assign(recipient).write();
+
+  const giftText = `🎁 أهداك ${sender.name} حمامة ${type}!`;
+  const chatRef = db.get('chats').find({ id: chat.id });
+  chat.messages.push({ from: req.user.id, text: giftText, at: Date.now() });
+  chatRef.assign(chat).write();
+
+  res.json({ ok: true, chat, senderUser: publicUser(db.get('users').find({ id: sender.id }).value()) });
 });
 
 app.post('/api/chats/:id/messages', authMiddleware, (req, res) => {
@@ -441,6 +583,106 @@ app.get('/api/admin/promo-stats', authMiddleware, requireAdmin, (req, res) => {
 });
 
 // ============ الإبلاغ عن محتوى/محادثة ============
+// ============ الأصدقاء (علاقة متبادلة حقيقية) ============
+app.post('/api/friends', authMiddleware, (req, res) => {
+  const { chatId } = req.body;
+  const chat = db.get('chats').find(c => c.id === chatId && c.participants.includes(req.user.id)).value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  const otherId = chat.participants.find(pid => pid !== req.user.id);
+  const me = db.get('users').find({ id: req.user.id });
+  const other = db.get('users').find({ id: otherId });
+  if (!me.value() || !other.value()) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+  const myFriends = new Set(me.value().friendIds || []);
+  const alreadyFriends = myFriends.has(otherId);
+  if (alreadyFriends) {
+    myFriends.delete(otherId);
+    me.assign({ friendIds: [...myFriends] }).write();
+    const otherFriends = new Set(other.value().friendIds || []); otherFriends.delete(req.user.id);
+    other.assign({ friendIds: [...otherFriends] }).write();
+    return res.json({ ok: true, isFriend: false });
+  }
+  myFriends.add(otherId);
+  me.assign({ friendIds: [...myFriends] }).write();
+  const otherFriends = new Set(other.value().friendIds || []); otherFriends.add(req.user.id);
+  other.assign({ friendIds: [...otherFriends] }).write();
+  res.json({ ok: true, isFriend: true });
+});
+
+app.get('/api/friends', authMiddleware, (req, res) => {
+  const ids = req.user.friendIds || [];
+  const friends = ids.map(id => {
+    const u = db.get('users').find({ id }).value();
+    if (!u) return null;
+    const chat = db.get('chats').find(c => c.participants.includes(req.user.id) && c.participants.includes(id) && c.status === 'active').value();
+    return u ? { id: u.id, name: u.name, avatar: u.avatar, chatId: chat ? chat.id : null } : null;
+  }).filter(Boolean);
+  res.json({ friends });
+});
+
+// ============ فحص التحديثات (رسائل/أصدقاء جدد) — يستخدمه العميل للإشعارات الفورية ============
+app.get('/api/updates', authMiddleware, (req, res) => {
+  const chats = db.get('chats').filter(c => c.status === 'active' && c.participants.includes(req.user.id)).value();
+  const chatSummaries = chats.map(c => ({ id: c.id, messageCount: c.messages.length, lastFrom: c.messages.length ? c.messages[c.messages.length - 1].from : null }));
+  const incomingCount = db.get('chats').filter(c => c.status === 'pending' && c.participants.includes(req.user.id) && c.senderId !== req.user.id).value().length;
+  res.json({ chatSummaries, incomingCount, friendIds: req.user.friendIds || [] });
+});
+
+// ============ إشارة المكالمات الصوتية/المرئية (WebRTC عبر Polling) ============
+// ملاحظة تقنية: نستخدم STUN فقط (بدون TURN) — تعمل على أغلب الشبكات المنزلية
+// لكن قد تفشل خلف بعض شبكات الشركات الصارمة NAT دون خادم TURN مدفوع.
+app.post('/api/chats/:id/call/start', authMiddleware, (req, res) => {
+  const { type, offer } = req.body;
+  const chatRef = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id));
+  const chat = chatRef.value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  if (!chat.unlocked[type] || !chat.participants.every(pid => chat.unlocked[type][pid])) {
+    return res.status(403).json({ error: 'تحتاج موافقة الطرفين أولاً على هذا النوع من المكالمة' });
+  }
+  chat.activeCall = {
+    type, initiatorId: req.user.id, offer, answer: null,
+    candidates: { [req.user.id]: [], [chat.participants.find(p => p !== req.user.id)]: [] },
+    status: 'ringing', startedAt: Date.now()
+  };
+  chatRef.assign(chat).write();
+  res.json({ ok: true, call: chat.activeCall });
+});
+
+app.get('/api/chats/:id/call', authMiddleware, (req, res) => {
+  const chat = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id)).value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  res.json({ call: chat.activeCall || null });
+});
+
+app.post('/api/chats/:id/call/answer', authMiddleware, (req, res) => {
+  const chatRef = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id));
+  const chat = chatRef.value();
+  if (!chat || !chat.activeCall) return res.status(404).json({ error: 'لا توجد مكالمة نشطة' });
+  chat.activeCall.answer = req.body.answer;
+  chat.activeCall.status = 'active';
+  chatRef.assign(chat).write();
+  res.json({ ok: true });
+});
+
+app.post('/api/chats/:id/call/ice', authMiddleware, (req, res) => {
+  const chatRef = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id));
+  const chat = chatRef.value();
+  if (!chat || !chat.activeCall) return res.status(404).json({ error: 'لا توجد مكالمة نشطة' });
+  if (!chat.activeCall.candidates[req.user.id]) chat.activeCall.candidates[req.user.id] = [];
+  chat.activeCall.candidates[req.user.id].push(req.body.candidate);
+  chatRef.assign(chat).write();
+  res.json({ ok: true });
+});
+
+app.post('/api/chats/:id/call/end', authMiddleware, (req, res) => {
+  const chatRef = db.get('chats').find(c => c.id === req.params.id && c.participants.includes(req.user.id));
+  const chat = chatRef.value();
+  if (!chat) return res.status(404).json({ error: 'المحادثة غير موجودة' });
+  chat.activeCall = null;
+  chatRef.assign(chat).write();
+  res.json({ ok: true });
+});
+
 app.post('/api/reports', authMiddleware, (req, res) => {
   const { chatId, reason, details } = req.body;
   if (!reason) return res.status(400).json({ error: 'سبب البلاغ مطلوب' });
