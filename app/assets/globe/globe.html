@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Zajel globe</title>
+<style>
+html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-select:none;user-select:none}
+#g{position:absolute;inset:0}
+#gl3{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.g3labs{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.g3l{position:absolute;left:0;top:0;margin-top:10px;font:600 13px system-ui,"Noto Sans Arabic","Noto Sans",sans-serif;color:#fff;white-space:nowrap;text-shadow:0 0 3px #000,0 1px 4px #000,0 0 8px #0009}
+.g3l.dst{color:#ffd75e}
+#nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#9fb0c8;font:14px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<div id="g"></div><div id="nogl">3D</div>
+<script src="d3.min.js"></script>
+<script src="topojson.min.js"></script>
+<script src="world.js"></script>
+<script src="three.min.js"></script>
+<script src="globe3d.js"></script>
+<script>
+(function () {
+  var G = null;
+  try { G = window.createGlobe3D(); } catch (e) { G = null; }
+  if (!G) { document.getElementById('nogl').style.display = 'flex'; return; }
+  G.mount(document.getElementById('g'));
+  var st = { flights: [], home: { c: [44.36, 33.31], city: '', label: '' }, last: null, landed: [], drag: { lon: 0, lat: 0 }, dragging: false };
+  var flights = {}, landed = {}, drag = null;
+  // Called from Flutter with { home:{lat,lon,label}, flights:[{id,from,to:{lat,lon,city},reveal,km,t0,t1}], landed:[{id,lat,lon,label,t}] }
+  window.zajel = {
+    set: function (s) {
+      st.home = { c: [s.home.lon, s.home.lat], city: s.home.label, label: s.home.label };
+      var keep = {};
+      st.flights = (s.flights || []).map(function (f) {
+        keep[f.id] = 1;
+        var o = flights[f.id];
+        if (!o) {
+          o = flights[f.id] = { id: f.id, from: [f.from.lon, f.from.lat], to: { c: [f.to.lon, f.to.lat], city: f.to.city },
+            ip: d3.geoInterpolate([f.from.lon, f.from.lat], [f.to.lon, f.to.lat]), km: f.km, p: 0 };
+        }
+        o.reveal = f.reveal; o.to.city = f.to.city; o.t0 = f.t0; o.t1 = f.t1;
+        return o;
+      });
+      Object.keys(flights).forEach(function (k) { if (!keep[k]) delete flights[k]; });
+      var keepL = {};
+      st.landed = (s.landed || []).map(function (l) {
+        keepL[l.id] = 1;
+        var o = landed[l.id];
+        if (!o) o = landed[l.id] = { c: [l.lon, l.lat], label: l.label, n: '', t: l.t };
+        o.label = l.label;
+        return o;
+      });
+      Object.keys(landed).forEach(function (k) { if (!keepL[k]) delete landed[k]; });
+      st.last = st.landed.reduce(function (a, b) { return !a || b.t > a.t ? b : a; }, null);
+    }
+  };
+  var cv = document.getElementById('gl3');
+  cv.addEventListener('pointerdown', function (e) { drag = [e.clientX, e.clientY]; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    st.drag.lon -= (e.clientX - drag[0]) * .3;
+    st.drag.lat = Math.max(-70, Math.min(70, st.drag.lat + (e.clientY - drag[1]) * .3));
+    drag = [e.clientX, e.clientY];
+  });
+  window.addEventListener('pointerup', function () { drag = null; });
+  window.addEventListener('pointercancel', function () { drag = null; });
+  function loop() {
+    var now = Date.now();
+    st.flights.forEach(function (f) { f.p = Math.max(0, Math.min(1, (now - f.t0) / Math.max(1, f.t1 - f.t0))); });
+    st.dragging = !!drag;
+    G.frame(now, st);
+    requestAnimationFrame(loop);
+  }
+  loop();
+  if (window.Bridge) window.Bridge.postMessage('ready');
+})();
+</script>
+</body>
+</html>

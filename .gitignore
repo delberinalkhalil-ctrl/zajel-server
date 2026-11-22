@@ -1,0 +1,11 @@
+# Secrets: never commit
+app/android/key.properties
+app/android/app/*.jks
+*.keystore
+functions/.env.local
+.firebase/
+# Build output
+app/build/
+app/.dart_tool/
+functions/node_modules/
+functions/lib/

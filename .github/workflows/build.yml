@@ -1,0 +1,107 @@
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: server } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install
+      - run: npm test
+      - run: npm run bundle
+      - uses: actions/upload-artifact@v4
+        with: { name: server-dist, path: server/dist/ }
+
+  # Uploads the server to cPanel (needs repository secrets CPANEL_HOST, CPANEL_USER, CPANEL_TOKEN)
+  # and restarts the Node.js app. App root on the host: ~/zajel-api
+  deploy-server:
+    needs: server
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.CPANEL_HOST }}
+      USER: ${{ secrets.CPANEL_USER }}
+      TOKEN: ${{ secrets.CPANEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: server-dist, path: dist }
+      - name: Upload to cPanel
+        if: env.TOKEN != ''
+        run: |
+          up() { curl -sS -f -H "Authorization: cpanel $USER:$TOKEN" "https://$HOST:2083/execute/Fileman/upload_files" \
+                   -F "dir=$1" -F "overwrite=1" -F "file-1=@$2" | grep -q '"status":1' || { echo "upload $2 failed"; exit 1; }; }
+          mk() { curl -sS -H "Authorization: cpanel $USER:$TOKEN" "https://$HOST:2083/json-api/cpanel?cpanel_jsonapi_version=2&cpanel_jsonapi_module=Fileman&cpanel_jsonapi_func=mkdir&path=$1&name=$2" > /dev/null; }
+          mk "" zajel-api; mk zajel-api dist; mk zajel-api tmp
+          up zajel-api/dist dist/server.js
+          up zajel-api/dist dist/setup.js
+          up zajel-api server/deploy/package.json
+          up zajel-api server/firestore.rules
+          up zajel-api server/firestore.indexes.json
+          date > restart.txt && up zajel-api/tmp restart.txt
+          echo "deployed"
+
+  android:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    env:
+      KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KP: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter --version
+      - run: flutter pub get
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+        continue-on-error: true
+      - name: Tests
+        run: flutter test
+        continue-on-error: true
+
+      - name: Android project (created on the build machine if not committed)
+        run: |
+          if [ ! -d android ]; then dart run tool/setup_android.dart --org app; fi
+
+      # Upload key. First run: a new key is generated and published as the "signing-key" artifact.
+      # Download it, keep it safe, and add ANDROID_KEYSTORE_BASE64 and ANDROID_KEY_PROPERTIES as repository secrets
+      # so every later build is signed with the same key.
+      - name: Signing key
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > android/app/upload.jks
+            printf '%s\n' "$KP" > android/key.properties
+          else
+            PASS=$(openssl rand -hex 16)
+            keytool -genkeypair -keystore android/app/upload.jks -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias upload -storepass "$PASS" -keypass "$PASS" -dname "CN=Zajel, O=Zajel, C=IQ"
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=upload\nstoreFile=upload.jks\n' "$PASS" "$PASS" > android/key.properties
+            mkdir -p ../signing-key
+            cp android/app/upload.jks android/key.properties ../signing-key/
+            base64 -w0 android/app/upload.jks > ../signing-key/ANDROID_KEYSTORE_BASE64.txt
+            keytool -list -v -keystore android/app/upload.jks -storepass "$PASS" | grep -E 'SHA1|SHA256' > ../signing-key/fingerprints.txt
+            echo "NEW_KEY=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build app bundle
+        run: flutter build appbundle --release --build-number=${{ github.run_number }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zajel-release-aab
+          path: app/build/app/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        if: env.NEW_KEY == '1'
+        with:
+          name: signing-key
+          path: signing-key/
+          retention-days: 30

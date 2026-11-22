@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "receiving", "order": "ASCENDING" }, { "fieldPath": "banned", "order": "ASCENDING" }, { "fieldPath": "rand", "order": "ASCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "receiving", "order": "ASCENDING" }, { "fieldPath": "banned", "order": "ASCENDING" }, { "fieldPath": "rand", "order": "DESCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "receiving", "order": "ASCENDING" }, { "fieldPath": "banned", "order": "ASCENDING" }, { "fieldPath": "country", "order": "ASCENDING" }, { "fieldPath": "rand", "order": "ASCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "receiving", "order": "ASCENDING" }, { "fieldPath": "banned", "order": "ASCENDING" }, { "fieldPath": "country", "order": "ASCENDING" }, { "fieldPath": "rand", "order": "DESCENDING" } ] },
+    { "collectionGroup": "users", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "vipActive", "order": "ASCENDING" }, { "fieldPath": "vipUntil", "order": "ASCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "arriveAt", "order": "ASCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "ASCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "landedAt", "order": "ASCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "from", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "from", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "pigeons", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "toUid", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "landedAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "chats", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "members", "arrayConfig": "CONTAINS" }, { "fieldPath": "updatedAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "calls", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "to", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }, { "fieldPath": "createdAt", "order": "DESCENDING" } ] },
+    { "collectionGroup": "reports", "queryScope": "COLLECTION", "fields": [
+      { "fieldPath": "target", "order": "ASCENDING" }, { "fieldPath": "at", "order": "ASCENDING" } ] }
+  ],
+  "fieldOverrides": []
+}

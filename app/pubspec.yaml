@@ -1,0 +1,55 @@
+name: zajel
+description: Zajel, send a letter with a carrier pigeon and meet someone anywhere in the world.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Firebase (FlutterFire). After `flutter pub get`, run `flutterfire configure`.
+  firebase_core: ^3.13.0
+  firebase_auth: ^5.5.2
+  cloud_firestore: ^5.6.6
+  firebase_messaging: ^15.2.5
+  google_sign_in: ^6.2.2
+  # App
+  provider: ^6.1.2
+  shared_preferences: ^2.3.3
+  flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+  crypto: ^3.0.6
+  image_picker: ^1.1.2
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+  webview_flutter: ^4.10.0
+  in_app_purchase: ^3.2.0
+  agora_rtc_engine: ^6.5.0
+  permission_handler: ^11.3.1
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/i18n/
+    - assets/globe/
+    - assets/img/
+    - assets/countries.json
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/img/app_icon.png
+  adaptive_icon_background: "#0B2A7A"
+  adaptive_icon_foreground: assets/img/app_icon_fg.png

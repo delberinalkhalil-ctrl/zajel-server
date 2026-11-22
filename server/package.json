@@ -1,0 +1,27 @@
+{
+  "name": "zajel-server",
+  "private": true,
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bundle": "tsc --noEmit && esbuild src/server.ts src/setup.ts --bundle --platform=node --target=node18 --format=cjs --packages=external --outdir=dist",
+    "start": "node dist/server.js",
+    "test": "tsc && node --test lib/test/*.test.js",
+    "setup": "node dist/setup.js"
+  },
+  "dependencies": {
+    "@googleapis/androidpublisher": "^42.3.1",
+    "agora-token": "^2.0.7",
+    "express": "^5.1.0",
+    "firebase-admin": "^13.5.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.10",
+    "typescript": "^5.9.3"
+  }
+}

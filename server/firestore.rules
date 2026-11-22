@@ -1,0 +1,40 @@
+rules_version = '2';
+// Clients only read. Every write goes through Cloud Functions, which check points, VIP, blocks and moderation.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+
+    // Private account: points, VIP, settings, blocked list.
+    match /users/{uid} {
+      allow read: if signedIn() && me() == uid;
+      allow write: if false;
+    }
+    // Public card shown to people you talk to.
+    match /profiles/{uid} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+    // The sender sees their pigeon; the recipient sees it only once it has landed with them.
+    match /pigeons/{id} {
+      allow read: if signedIn() && (resource.data.from == me() ||
+        (resource.data.toUid == me() && resource.data.status == 'landed'));
+      allow write: if false;
+    }
+    match /chats/{chatId} {
+      allow read: if signedIn() && me() in resource.data.members;
+      allow write: if false;
+      match /messages/{mid} {
+        allow read: if signedIn() && me() in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow write: if false;
+      }
+    }
+    match /calls/{id} {
+      allow read: if signedIn() && me() in resource.data.members;
+      allow write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

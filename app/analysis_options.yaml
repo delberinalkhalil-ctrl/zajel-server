@@ -1,0 +1,8 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - assets/**
+linter:
+  rules:
+    prefer_const_constructors: false
