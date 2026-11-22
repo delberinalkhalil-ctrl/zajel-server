@@ -1,0 +1,10 @@
+---
+# cPanel > Git Version Control > Deploy HEAD Commit runs these tasks: it copies the built server into ~/zajel-api
+# (the Node.js app) and restarts it. Secrets stay in ~/zajel-api/.env and ~/zajel-private, never in Git.
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/miraauku/zajel-api
+    - /bin/mkdir -p $DEPLOYPATH/dist $DEPLOYPATH/tmp
+    - /bin/cp server/dist/server.js server/dist/setup.js $DEPLOYPATH/dist/
+    - /bin/cp server/deploy/package.json server/firestore.rules server/firestore.indexes.json $DEPLOYPATH/
+    - /bin/touch $DEPLOYPATH/tmp/restart.txt
