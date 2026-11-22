@@ -30,7 +30,7 @@ class Cfg {
   };
 
   // Replace with your own pages before publishing (Google Play requires a privacy policy URL).
-  static const privacyUrl = 'https://example.com/zajel/privacy';
-  static const termsUrl = 'https://example.com/zajel/terms';
-  static const supportEmail = 'support@example.com';
+  static const privacyUrl = 'https://bawer-kalash.com/zajel/privacy.html';
+  static const termsUrl = 'https://bawer-kalash.com/zajel/terms.html';
+  static const supportEmail = 'info@miran-iq.com';
 }
