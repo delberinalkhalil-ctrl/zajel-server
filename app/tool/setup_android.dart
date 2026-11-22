@@ -94,6 +94,8 @@ subprojects {
             extensions.configure<com.android.build.gradle.LibraryExtension>("android") { compileSdk = 36 }
         }
     }
+    // Release lint of third-party plugins is not useful here and can crash on older JDKs.
+    tasks.matching { it.name.startsWith("lintVital") }.configureEach { enabled = false }
 }
 ''';
       final at = g.indexOf('subprojects {\n    project.evaluationDependsOn');
