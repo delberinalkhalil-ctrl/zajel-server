@@ -1,4 +1,4 @@
-import { logger, env } from './runtime';
+import { env, httpJson, logger } from './runtime';
 
 // Translation provider, chosen by environment:
 //   GOOGLE_TRANSLATE_KEY set -> Google Cloud Translation (needs a billing account)
@@ -28,10 +28,9 @@ async function myMemory(text: string, from: string, to: string): Promise<string>
     u.searchParams.set('langpair', `${MM[from] ?? from}|${MM[to] ?? to}`);
     const email = env('MYMEMORY_EMAIL');
     if (email) u.searchParams.set('de', email);
-    const r = await fetch(u, { signal: AbortSignal.timeout(8000) });
-    const j = (await r.json()) as { responseStatus?: number | string; responseData?: { translatedText?: string } };
-    const t = j.responseData?.translatedText;
-    if (Number(j.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) throw new Error('mymemory ' + j.responseStatus);
+    const { json: j } = await httpJson<{ responseStatus?: number | string; responseData?: { translatedText?: string } }>(u, { timeoutMs: 8000 });
+    const t = j?.responseData?.translatedText;
+    if (Number(j?.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) throw new Error('mymemory ' + j.responseStatus);
     parts.push(t);
   }
   return parts.join(' ');
@@ -40,24 +39,22 @@ async function myMemory(text: string, from: string, to: string): Promise<string>
 async function deepl(text: string, from: string, to: string): Promise<string> {
   const key = env('DEEPL_KEY');
   const host = key.endsWith(':fx') ? 'api-free.deepl.com' : 'api.deepl.com';
-  const r = await fetch(`https://${host}/v2/translate`, {
-    method: 'POST', signal: AbortSignal.timeout(8000),
+  const { status, json: j } = await httpJson<{ translations?: { text: string }[] }>(`https://${host}/v2/translate`, {
+    method: 'POST', timeoutMs: 8000,
     headers: { Authorization: `DeepL-Auth-Key ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text: [text], target_lang: to === 'pt' ? 'PT-BR' : to === 'zh' ? 'ZH-HANS' : to.toUpperCase(), source_lang: from.toUpperCase() }),
   });
-  const j = (await r.json()) as { translations?: { text: string }[] };
-  if (!j.translations?.[0]) throw new Error('deepl ' + r.status);
+  if (!j?.translations?.[0]) throw new Error('deepl ' + status);
   return j.translations[0].text;
 }
 
 async function google(text: string, from: string, to: string): Promise<string> {
-  const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${env('GOOGLE_TRANSLATE_KEY')}`, {
-    method: 'POST', signal: AbortSignal.timeout(8000), headers: { 'Content-Type': 'application/json' },
+  const { status, json: j } = await httpJson<{ data?: { translations?: { translatedText: string }[] } }>(`https://translation.googleapis.com/language/translate/v2?key=${env('GOOGLE_TRANSLATE_KEY')}`, {
+    method: 'POST', timeoutMs: 8000, headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ q: text, source: from === 'zh' ? 'zh-CN' : from, target: to === 'zh' ? 'zh-CN' : to, format: 'text' }),
   });
-  const j = (await r.json()) as { data?: { translations?: { translatedText: string }[] } };
-  const t = j.data?.translations?.[0]?.translatedText;
-  if (!t) throw new Error('google ' + r.status);
+  const t = j?.data?.translations?.[0]?.translatedText;
+  if (!t) throw new Error('google ' + status);
   return t;
 }
 

@@ -15,18 +15,44 @@ if ((0, import_node_fs.existsSync)(file)) {
 var import_node_fs2 = require("node:fs");
 var import_node_path2 = require("node:path");
 var import_app = require("firebase-admin/app");
+
+// src/runtime.ts
+var import_node_https = require("node:https");
+function httpJson(url, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const req = (0, import_node_https.request)(url, { method: opts.method ?? "GET", headers: opts.headers, timeout: opts.timeoutMs ?? 1e4 }, (res) => {
+      const chunks = [];
+      res.on("data", (c) => chunks.push(c));
+      res.on("end", () => {
+        const text = Buffer.concat(chunks).toString("utf8");
+        let json = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+        }
+        resolve({ status: res.statusCode ?? 0, json, text });
+      });
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+}
+
+// src/setup.ts
 var root = (0, import_node_path2.join)(__dirname, "..");
 var sa = JSON.parse((0, import_node_fs2.readFileSync)(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "", "utf8"));
 var project = sa.project_id;
 async function api(url, method, body) {
   const { access_token } = await (0, import_app.applicationDefault)().getAccessToken();
-  const r = await fetch(url, {
+  const r = await httpJson(url, {
     method,
     headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
-    body: body ? JSON.stringify(body) : void 0
+    body: body ? JSON.stringify(body) : void 0,
+    timeoutMs: 3e4
   });
-  const text = await r.text();
-  return { status: r.status, text };
+  return { status: r.status, text: r.text };
 }
 async function rules() {
   const content = (0, import_node_fs2.readFileSync)((0, import_node_path2.join)(root, "firestore.rules"), "utf8");

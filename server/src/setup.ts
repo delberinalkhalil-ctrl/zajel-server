@@ -5,6 +5,7 @@ import './loadenv';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { applicationDefault } from 'firebase-admin/app';
+import { httpJson } from './runtime';
 
 const root = join(__dirname, '..');
 const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '', 'utf8')) as { project_id: string };
@@ -12,12 +13,11 @@ const project = sa.project_id;
 
 async function api(url: string, method: string, body?: unknown) {
   const { access_token } = await applicationDefault().getAccessToken();
-  const r = await fetch(url, {
+  const r = await httpJson(url, {
     method, headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? JSON.stringify(body) : undefined, timeoutMs: 30000,
   });
-  const text = await r.text();
-  return { status: r.status, text };
+  return { status: r.status, text: r.text };
 }
 
 async function rules() {

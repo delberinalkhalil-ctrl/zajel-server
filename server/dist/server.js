@@ -75,6 +75,7 @@ var import_node_fs2 = require("node:fs");
 var import_node_path2 = require("node:path");
 
 // src/runtime.ts
+var import_node_https = require("node:https");
 var HttpsError = class extends Error {
   constructor(code, message, details) {
     super(message);
@@ -91,6 +92,27 @@ var logger = {
   error: (...a) => console.error((/* @__PURE__ */ new Date()).toISOString(), ...a)
 };
 var env = (name, def = "") => process.env[name] ?? def;
+function httpJson(url, opts = {}) {
+  return new Promise((resolve, reject) => {
+    const req = (0, import_node_https.request)(url, { method: opts.method ?? "GET", headers: opts.headers, timeout: opts.timeoutMs ?? 1e4 }, (res) => {
+      const chunks2 = [];
+      res.on("data", (c) => chunks2.push(c));
+      res.on("end", () => {
+        const text = Buffer.concat(chunks2).toString("utf8");
+        let json = null;
+        try {
+          json = text ? JSON.parse(text) : null;
+        } catch {
+        }
+        resolve({ status: res.statusCode ?? 0, json, text });
+      });
+    });
+    req.on("timeout", () => req.destroy(new Error("timeout")));
+    req.on("error", reject);
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+}
 
 // src/common.ts
 var import_node_crypto = require("node:crypto");
@@ -522,10 +544,9 @@ async function myMemory(text, from, to) {
     u.searchParams.set("langpair", `${MM[from] ?? from}|${MM[to] ?? to}`);
     const email = env("MYMEMORY_EMAIL");
     if (email) u.searchParams.set("de", email);
-    const r2 = await fetch(u, { signal: AbortSignal.timeout(8e3) });
-    const j = await r2.json();
-    const t = j.responseData?.translatedText;
-    if (Number(j.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) throw new Error("mymemory " + j.responseStatus);
+    const { json: j } = await httpJson(u, { timeoutMs: 8e3 });
+    const t = j?.responseData?.translatedText;
+    if (Number(j?.responseStatus) !== 200 || !t || /MYMEMORY WARNING/i.test(t)) throw new Error("mymemory " + j.responseStatus);
     parts.push(t);
   }
   return parts.join(" ");
@@ -533,26 +554,24 @@ async function myMemory(text, from, to) {
 async function deepl(text, from, to) {
   const key = env("DEEPL_KEY");
   const host = key.endsWith(":fx") ? "api-free.deepl.com" : "api.deepl.com";
-  const r2 = await fetch(`https://${host}/v2/translate`, {
+  const { status, json: j } = await httpJson(`https://${host}/v2/translate`, {
     method: "POST",
-    signal: AbortSignal.timeout(8e3),
+    timeoutMs: 8e3,
     headers: { Authorization: `DeepL-Auth-Key ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ text: [text], target_lang: to === "pt" ? "PT-BR" : to === "zh" ? "ZH-HANS" : to.toUpperCase(), source_lang: from.toUpperCase() })
   });
-  const j = await r2.json();
-  if (!j.translations?.[0]) throw new Error("deepl " + r2.status);
+  if (!j?.translations?.[0]) throw new Error("deepl " + status);
   return j.translations[0].text;
 }
 async function google(text, from, to) {
-  const r2 = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${env("GOOGLE_TRANSLATE_KEY")}`, {
+  const { status, json: j } = await httpJson(`https://translation.googleapis.com/language/translate/v2?key=${env("GOOGLE_TRANSLATE_KEY")}`, {
     method: "POST",
-    signal: AbortSignal.timeout(8e3),
+    timeoutMs: 8e3,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ q: text, source: from === "zh" ? "zh-CN" : from, target: to === "zh" ? "zh-CN" : to, format: "text" })
   });
-  const j = await r2.json();
-  const t = j.data?.translations?.[0]?.translatedText;
-  if (!t) throw new Error("google " + r2.status);
+  const t = j?.data?.translations?.[0]?.translatedText;
+  if (!t) throw new Error("google " + status);
   return t;
 }
 var engine = () => env("GOOGLE_TRANSLATE_KEY") ? google : env("DEEPL_KEY") ? deepl : myMemory;

@@ -81,6 +81,28 @@ void main(List<String> args) async {
   if (gs.existsSync()) gs.copySync('android/app/google-services.json');
   _ok('Firebase Gradle plugin and google-services.json');
 
+  // 3b. Some plugins (Agora's iris_method_channel) still compile against an old Android SDK; raise it for all libraries.
+  final rootKts = File('android/build.gradle.kts');
+  if (rootKts.existsSync()) {
+    var g = rootKts.readAsStringSync();
+    if (!g.contains('zajel-compile-sdk')) {
+      const fix = '''
+// zajel-compile-sdk: build every Android library against a recent SDK.
+subprojects {
+    afterEvaluate {
+        if (plugins.hasPlugin("com.android.library")) {
+            extensions.configure<com.android.build.gradle.LibraryExtension>("android") { compileSdk = 36 }
+        }
+    }
+}
+''';
+      final at = g.indexOf('subprojects {\n    project.evaluationDependsOn');
+      g = at >= 0 ? g.substring(0, at) + fix + '\n' + g.substring(at) : g + fix;
+      rootKts.writeAsStringSync(g);
+    }
+  }
+  _ok('compileSdk 36 for all Android libraries');
+
   // 4. Permissions.
   final manifest = File('android/app/src/main/AndroidManifest.xml');
   var m = manifest.readAsStringSync();
