@@ -6,8 +6,8 @@
     "node": ">=18"
   },
   "scripts": {
-    "start": "node dist/server.js",
-    "setup": "node dist/setup.js"
+    "start": "node --disable-wasm-trap-handler dist/server.js",
+    "setup": "node --disable-wasm-trap-handler dist/setup.js"
   },
   "dependencies": {
     "@googleapis/androidpublisher": "^42.3.1",
