@@ -95,6 +95,8 @@ class Pigeon {
   bool get fast => d['fast'] == true;
   String? get wantCountry => d['wantCountry'] as String?;
   String get status => _s(d['status']);
+  String? get toUid => d['toUid'] as String?;
+  String get toName => _s(d['toName']);
   String get toCity => _s(d['toCity']);
   String get toCountryName => _s(d['toCountryName']);
   LatLon? get toLoc => LatLon.from(d['toLoc']);

@@ -11,15 +11,31 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
 .g3labs{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .g3l{position:absolute;left:0;top:0;margin-top:10px;font:600 13px system-ui,"Noto Sans Arabic","Noto Sans",sans-serif;color:#fff;white-space:nowrap;text-shadow:0 0 3px #000,0 1px 4px #000,0 0 8px #0009}
 .g3l.dst{color:#ffd75e}
+/* landing points: the recipient's photo and name */
+.g3l.who{display:flex;flex-direction:column;align-items:center;gap:2px;margin-top:-58px;font-size:12px}
+.g3l.who .av{width:34px;height:34px;border-radius:50%;overflow:hidden;border:2px solid #fff;background:#3b82f6;color:#fff;display:flex;align-items:center;justify-content:center;font:700 15px system-ui,sans-serif;box-shadow:0 2px 8px #000a}
+.g3l.who .av img{width:100%;height:100%;object-fit:cover;display:block}
+.g3l.who b{font-weight:700;font-size:13px}
+.g3l.who span{font-weight:500;opacity:.9}
+/* the moment the pigeon lands: a bigger card that pops in */
+.g3l.who.big{margin-top:-112px}
+.g3l.who.big .av{animation:pop .7s cubic-bezier(.2,1.6,.4,1) both}
+.g3l.who.big b,.g3l.who.big span{animation:fin .5s .25s both}
+.g3l.who.big .av{width:74px;height:74px;border:3px solid #ffd75e;font-size:30px;box-shadow:0 0 0 6px #ffd75e33,0 4px 18px #000c}
+.g3l.who.big b{font-size:16px}
+@keyframes pop{from{transform:scale(.15);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes fin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#snd{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:0;background:#0009;color:#fff;font-size:17px;line-height:36px;text-align:center;padding:0;z-index:5}
 #nogl{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#9fb0c8;font:14px system-ui,sans-serif}
 </style>
 </head>
 <body>
-<div id="g"></div><div id="nogl">3D</div>
+<div id="g"></div><div id="nogl">3D</div><button id="snd" aria-label="sound"></button>
 <script src="d3.min.js"></script>
 <script src="topojson.min.js"></script>
 <script src="world.js"></script>
 <script src="three.min.js"></script>
+<script src="sounds.js"></script>
 <script src="earth_textures.js"></script>
 <script src="globe3d.js"></script>
 <script>
@@ -29,7 +45,12 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
   if (!G) { document.getElementById('nogl').style.display = 'flex'; return; }
   G.mount(document.getElementById('g'));
   var st = { flights: [], home: { c: [44.36, 33.31], city: '', label: '' }, last: null, landed: [], drag: { lon: 0, lat: 0 }, dragging: false };
-  var flights = {}, landed = {}, drag = null;
+  var flights = {}, landed = {}, drag = null, played = {};
+  var S = window.ZSound;
+  function snd(k) { try { if (S && !S.muted) S[k](); } catch (e) { /* audio unavailable */ } }
+  var sb = document.getElementById('snd');
+  function sbUpdate() { sb.textContent = S && S.muted ? '\uD83D\uDD07' : '\uD83D\uDD0A'; }
+  if (S) { sbUpdate(); sb.addEventListener('click', function (e) { e.stopPropagation(); S.setMuted(!S.muted); sbUpdate(); if (!S.muted) S.coo(); }); } else sb.style.display = 'none';
   // Called from Flutter with { home:{lat,lon,label}, flights:[{id,from,to:{lat,lon,city},reveal,km,t0,t1}], landed:[{id,lat,lon,label,t}] }
   window.zajel = {
     set: function (s) {
@@ -40,7 +61,8 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
         var o = flights[f.id];
         if (!o) {
           o = flights[f.id] = { id: f.id, from: [f.from.lon, f.from.lat], to: { c: [f.to.lon, f.to.lat], city: f.to.city },
-            ip: d3.geoInterpolate([f.from.lon, f.from.lat], [f.to.lon, f.to.lat]), km: f.km, p: 0 };
+            ip: d3.geoInterpolate([f.from.lon, f.from.lat], [f.to.lon, f.to.lat]), km: f.km, p: 0, cruiseAt: Date.now() + 5000 };
+          if (Date.now() - f.t0 < 10000) snd('takeoff');
         }
         o.reveal = f.reveal; o.to.city = f.to.city; o.t0 = f.t0; o.t1 = f.t1;
         return o;
@@ -50,8 +72,12 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
       st.landed = (s.landed || []).map(function (l) {
         keepL[l.id] = 1;
         var o = landed[l.id];
-        if (!o) o = landed[l.id] = { c: [l.lon, l.lat], label: l.label, n: '', t: l.t };
-        o.label = l.label;
+        if (!o) {
+          o = landed[l.id] = { c: [l.lon, l.lat], label: l.label, n: '', t: l.t };
+          // a pigeon that has just landed (not one loaded from history): play the landing sound once
+          if (Date.now() - l.t < 15000 && !played[l.id]) { played[l.id] = 1; snd('landing'); }
+        }
+        o.label = l.label; o.name = l.name || ''; o.photo = l.photo || '';
         return o;
       });
       Object.keys(landed).forEach(function (k) { if (!keepL[k]) delete landed[k]; });
@@ -59,7 +85,7 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
     }
   };
   var cv = document.getElementById('gl3');
-  cv.addEventListener('pointerdown', function (e) { drag = [e.clientX, e.clientY]; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointerdown', function (e) { if (S) S.unlock(); drag = [e.clientX, e.clientY]; cv.setPointerCapture && cv.setPointerCapture(e.pointerId); });
   cv.addEventListener('pointermove', function (e) {
     if (!drag) return;
     st.drag.lon -= (e.clientX - drag[0]) * .3;
@@ -70,7 +96,12 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
   window.addEventListener('pointercancel', function () { drag = null; });
   function loop() {
     var now = Date.now();
-    st.flights.forEach(function (f) { f.p = Math.max(0, Math.min(1, (now - f.t0) / Math.max(1, f.t1 - f.t0))); });
+    st.flights.forEach(function (f, i) {
+      f.p = Math.max(0, Math.min(1, (now - f.t0) / Math.max(1, f.t1 - f.t0)));
+      // calm wing beats now and then while the leading pigeon is in the air, and the landing as it arrives
+      if (!i && f.p > .02 && f.p < .97 && now > f.cruiseAt) { f.cruiseAt = now + 7000 + Math.random() * 5000; snd('cruise'); }
+      if (f.p >= .985 && !played[f.id]) { played[f.id] = 1; snd('landing'); }
+    });
     st.dragging = !!drag;
     G.frame(now, st);
     requestAnimationFrame(loop);

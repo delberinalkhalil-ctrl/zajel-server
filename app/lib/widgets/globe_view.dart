@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../core/models.dart';
 
@@ -24,12 +25,16 @@ class GlobeFlight {
 }
 
 class GlobeLanding {
-  GlobeLanding(this.id, this.at, this.label, this.t);
+  GlobeLanding(this.id, this.at, this.label, this.t, {this.name = '', this.photo = ''});
   final String id;
   final LatLon at;
   final String label;
   final int t;
-  Map<String, dynamic> toJson() => {'id': id, 'lat': at.lat, 'lon': at.lon, 'label': label, 't': t};
+
+  /// The person the pigeon landed with, shown above the landing point.
+  final String name;
+  final String photo;
+  Map<String, dynamic> toJson() => {'id': id, 'lat': at.lat, 'lon': at.lon, 'label': label, 't': t, 'name': name, 'photo': photo};
 }
 
 /// The WebGL globe (assets/globe/globe.html) rendered in a WebView. Drag rotates the globe.
@@ -61,6 +66,9 @@ class _GlobeViewState extends State<GlobeView> {
         }
       })
       ..loadFlutterAsset('assets/globe/globe.html');
+    // Let the globe play the pigeon's sounds (take-off, flight, landing) without waiting for a tap.
+    final p = _c.platform;
+    if (p is AndroidWebViewController) p.setMediaPlaybackRequiresUserGesture(false);
   }
 
   @override

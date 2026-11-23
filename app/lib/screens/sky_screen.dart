@@ -22,6 +22,20 @@ class _SkyScreenState extends State<SkyScreen> {
   final _text = TextEditingController();
   final _scroll = ScrollController();
   late final Stream<List<Pigeon>> _mine = Api.myPigeons();
+
+  /// Names and photos of the people my pigeons landed with, loaded once per person.
+  final Map<String, Profile> _people = {};
+  final Set<String> _loading = {};
+  Profile? _person(String? uid) {
+    if (uid == null || uid.isEmpty) return null;
+    final p = _people[uid];
+    if (p == null && _loading.add(uid)) {
+      Api.profile(uid).first.then((v) {
+        if (mounted) setState(() => _people[uid] = v);
+      }).catchError((_) {});
+    }
+    return p;
+  }
   String? _dest;
   bool _fast = false;
   bool _busy = false;
@@ -110,7 +124,10 @@ class _SkyScreenState extends State<SkyScreen> {
         final landed = <GlobeLanding>[
           for (final p in mine.take(6))
             if ((p.status == 'landed' || p.status == 'caught') && p.toLoc != null && p.landedAt != null)
-              GlobeLanding(p.id, p.toLoc!, p.toCity.isNotEmpty ? p.toCity : p.toCountryName, p.landedAt!.millisecondsSinceEpoch),
+              GlobeLanding(
+                p.id, p.toLoc!, p.toCity.isNotEmpty ? p.toCity : p.toCountryName, p.landedAt!.millisecondsSinceEpoch,
+                name: _person(p.toUid)?.name ?? p.toName, photo: _person(p.toUid)?.photoUrl ?? '',
+              ),
         ];
         return ListView(controller: _scroll, padding: EdgeInsets.zero, children: [
           SizedBox(

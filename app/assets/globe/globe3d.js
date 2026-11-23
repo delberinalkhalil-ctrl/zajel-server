@@ -272,10 +272,23 @@ window.createGlobe3D = function () {
 
   /* ---------- labels ---------- */
   let wrap = null, labs = null; const labEls = new Map();
-  function label(key, pos, text, cls, W, H, show) {
+  // A label pinned to a point on the globe. With `who` ({name, photo}) it shows the person's photo and name above the text.
+  function label(key, pos, text, cls, W, H, show, who) {
     let el = labEls.get(key);
     if (!el) { el = document.createElement('div'); el.className = 'g3l ' + (cls || ''); labs.appendChild(el); labEls.set(key, el); }
-    if (el.textContent !== text) el.textContent = text;
+    const cn = 'g3l ' + (cls || ''); if (el.className !== cn) el.className = cn;
+    const sig = who ? text + '|' + (who.name || '') + '|' + (who.photo || '') : text;
+    if (el.dataset.sig !== sig) {
+      el.dataset.sig = sig; el.textContent = '';
+      if (who) {
+        const av = document.createElement('div'); av.className = 'av';
+        if (who.photo) { const im = document.createElement('img'); im.src = who.photo; im.alt = ''; im.onerror = () => { im.remove(); av.textContent = (who.name || '?').trim().charAt(0); }; av.appendChild(im); }
+        else av.textContent = (who.name || '?').trim().charAt(0);
+        el.appendChild(av);
+        if (who.name) { const nm = document.createElement('b'); nm.textContent = who.name; el.appendChild(nm); }
+        const cy = document.createElement('span'); cy.textContent = text; el.appendChild(cy);
+      } else el.textContent = text;
+    }
     const camDir = cam.position.clone().sub(pos), vis = show && pos.clone().normalize().dot(camDir) > 0;
     const p = pos.clone().project(cam);
     if (!vis || p.z > 1) { el.style.display = 'none'; return; }
@@ -286,7 +299,10 @@ window.createGlobe3D = function () {
   /* ---------- camera rig ---------- */
   const rig = { pos: ll(44, 15, 2.8), look: V(0, 0, 0), up: Y.clone() };
   let size = [0, 0];
+  const recentT = (l, now) => st0.last === l && now - l.t < 9000;
+  let st0 = { last: null };
   function frame(now, st) {
+    st0 = st;
     if (!wrap) return;
     const W = wrap.clientWidth, H = wrap.clientHeight; if (!W || !H) return;
     if (size[0] !== W || size[1] !== H) { R.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); size = [W, H]; }
@@ -312,10 +328,11 @@ window.createGlobe3D = function () {
     // landed pins
     st.landed.forEach(l => {
       let pn = landPins.get(l); if (!pn) { pn = pin(0x3b82f6); place(pn, l.c[0], l.c[1]); scene.add(pn); landPins.set(l, pn); }
-      label('l' + l.t, ll(l.c[0], l.c[1], 1), l.label, 'lnd', W, H, true);
+      const fresh = recentT(l, now);
+      label('l' + l.t, ll(l.c[0], l.c[1], 1), l.label, fresh ? 'lnd who big' : 'lnd who', W, H, true, { name: l.name, photo: l.photo });
     });
     landPins.forEach((pn, l) => { if (!st.landed.includes(l)) { scene.remove(pn); landPins.delete(l); } });
-    const recent = st.last && now - st.last.t < 4500 ? st.last : null;
+    const recent = st.last && now - st.last.t < 9000 ? st.last : null;
     if (recent) {
       const q = ((now - recent.t) / 1300) % 1; place(ripple, recent.c[0], recent.c[1], 1.002);
       ripple.quaternion.setFromUnitVectors(V(0, 0, 1), ripple.position.clone().normalize());
