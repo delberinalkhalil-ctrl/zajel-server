@@ -40,6 +40,29 @@ window.createGlobe3D = function () {
     cap: std(0xffffff, .4), red: std(0xd7263d, .45), blue: std(0x1d4ed8, .45),
     gold: std(0xe8a317, .28, 1, { envMapIntensity: 1.1 }), gold2: std(0xf5c242, .22, 1, { envMapIntensity: 1.2 })
   };
+  /* airmail envelope textures (front: seal and flap, back: plain) */
+  function envTex(front) {
+    const w = 512, h = 314, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d');
+    const pg = x.createLinearGradient(0, 0, w, h); pg.addColorStop(0, '#f4ead6'); pg.addColorStop(1, '#e6d8bc'); x.fillStyle = pg; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2500; i++) { x.fillStyle = `rgba(120,90,50,${Math.random() * .05})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } // paper grain
+    // red / blue diagonal airmail border
+    x.save(); x.beginPath(); x.rect(0, 0, w, h); x.rect(18, 18, w - 36, h - 36); x.clip('evenodd');
+    for (let k = -h; k < w + h; k += 44) { [['#c8323c', 0], ['#f4ead6', 11], ['#2a4fa0', 22], ['#f4ead6', 33]].forEach(([col, o]) => { x.fillStyle = col; x.beginPath(); x.moveTo(k + o, 0); x.lineTo(k + o + 11, 0); x.lineTo(k + o + 11 - h, h); x.lineTo(k + o - h, h); x.fill(); }); }
+    x.restore();
+    if (front) {
+      x.strokeStyle = 'rgba(110,80,40,.35)'; x.lineWidth = 3; x.beginPath(); x.moveTo(20, 20); x.lineTo(w / 2, h * .6); x.lineTo(w - 20, 20); x.moveTo(20, h - 20); x.lineTo(w * .4, h * .48); x.moveTo(w - 20, h - 20); x.lineTo(w * .6, h * .48); x.stroke();
+      const cx = w / 2, cy = h * .6, r = 44; // wax seal
+      const sg = x.createRadialGradient(cx - 12, cy - 14, 4, cx, cy, r); sg.addColorStop(0, '#e0525a'); sg.addColorStop(.6, '#b3202b'); sg.addColorStop(1, '#7c1219');
+      x.fillStyle = sg; x.beginPath(); for (let a = 0; a <= 40; a++) { const t = a / 40 * Math.PI * 2, rr = r + Math.sin(t * 9) * 3; x.lineTo(cx + Math.cos(t) * rr, cy + Math.sin(t) * rr); } x.fill();
+      x.strokeStyle = 'rgba(80,8,12,.6)'; x.lineWidth = 3; x.beginPath(); x.arc(cx, cy, r * .68, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = 'rgba(70,6,10,.75)'; x.beginPath(); // small pigeon emblem
+      x.moveTo(cx - 18, cy + 2); x.quadraticCurveTo(cx - 6, cy - 22, cx + 4, cy - 4); x.quadraticCurveTo(cx + 14, cy - 18, cx + 20, cy - 10); x.quadraticCurveTo(cx + 10, cy + 2, cx + 2, cy + 6); x.quadraticCurveTo(cx - 8, cy + 14, cx - 18, cy + 2); x.fill();
+    }
+    const t = new T.CanvasTexture(c); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; return t;
+  }
+  M.envFront = std(0xffffff, .85, 0, { map: envTex(true), envMapIntensity: .3 });
+  M.envBack = std(0xffffff, .85, 0, { map: envTex(false), envMapIntensity: .3 });
+  M.paper = std(0xeadcc0, .9);
 
   /* ---------- 3D pigeon ---------- */
   function sph(r, mat, sx, sy, sz, x, y, z, seg = 24) { const m = new T.Mesh(new T.SphereGeometry(r, seg, Math.round(seg * .66)), mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); return m; }
@@ -71,9 +94,10 @@ window.createGlobe3D = function () {
     });
     const legs = new T.Group();
     [-1, 1].forEach(sd => { const l = new T.Mesh(new T.CylinderGeometry(.03, .025, .32, 8), M.foot); l.position.set(sd * .12, -.48, .12); legs.add(l); });
-    const cap = new T.Mesh(new T.CylinderGeometry(.065, .065, .2, 16), M.cap); cap.position.set(.12, -.52, .12); legs.add(cap);
-    const rb = new T.Mesh(new T.CylinderGeometry(.068, .068, .05, 16), M.red); rb.position.copy(cap.position); legs.add(rb);
     g.add(legs);
+    // the letter: an airmail envelope with a red wax seal, held in the beak
+    const env = new T.Mesh(new T.BoxGeometry(.7, .43, .014), [M.paper, M.paper, M.paper, M.paper, M.envFront, M.envBack]);
+    env.position.set(.02, .12, 1.52); env.rotation.set(0, Math.PI / 2 + .12, .16); g.add(env);
     return {
       g, wings, legs,
       pose(t, folded) {
