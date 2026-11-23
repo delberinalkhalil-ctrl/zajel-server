@@ -121,8 +121,30 @@ subprojects {
   ];
   final add = perms.where((p) => !m.contains('"$p"')).map((p) => '    <uses-permission android:name="$p"/>\n').join();
   if (add.isNotEmpty) m = m.replaceFirst('    <application', '$add    <application');
+  // Zajel has no screen sharing: drop the screen-capture permissions that Agora's SDK would merge in,
+  // so Google Play does not ask for a foreground-service (media projection) declaration.
+  if (!m.contains('xmlns:tools')) {
+    m = m.replaceFirst('<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
+        '<manifest xmlns:android="http://schemas.android.com/apk/res/android"\n    xmlns:tools="http://schemas.android.com/tools"');
+  }
+  const removed = [
+    'android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION',
+    'android.permission.SYSTEM_ALERT_WINDOW',
+  ];
+  final rm = removed.where((p) => !m.contains('"$p" tools:node')).map((p) => '    <uses-permission android:name="$p" tools:node="remove"/>\n').join();
+  if (rm.isNotEmpty) m = m.replaceFirst('    <application', '$rm    <application');
   manifest.writeAsStringSync(m);
   _ok('AndroidManifest permissions');
+
+  // 4b. Leave out Agora's screen-sharing extension (its service needs the media projection permission).
+  if (kts.existsSync()) {
+    var s = kts.readAsStringSync();
+    if (!s.contains('full-screen-sharing')) {
+      s += '\nconfigurations.all {\n    exclude(group = "io.agora.rtc", module = "full-screen-sharing")\n}\n';
+      kts.writeAsStringSync(s);
+    }
+  }
+  _ok('Agora screen sharing excluded');
 
   // 5. Launcher icons.
   await _run('dart', ['run', 'flutter_launcher_icons']);

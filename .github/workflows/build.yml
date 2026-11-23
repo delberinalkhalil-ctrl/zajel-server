@@ -95,6 +95,14 @@ jobs:
       - name: Build app bundle
         run: flutter build appbundle --release --build-number=${{ github.run_number }}
 
+      - name: Check merged manifest permissions
+        run: |
+          f=$(find build/app/intermediates -path '*release*' -name AndroidManifest.xml | grep -i merged | head -1)
+          echo "Merged manifest: $f"
+          grep -o 'uses-permission[^>]*android:name="[^"]*"' "$f" | sed 's/.*name=//' | sort -u
+          grep -o 'foregroundServiceType="[^"]*"' "$f" | sort -u || true
+          if grep -q 'MEDIA_PROJECTION\|mediaProjection' "$f"; then echo "::error::media projection still present"; exit 1; fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: zajel-release-aab
