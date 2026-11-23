@@ -148,14 +148,85 @@ window.createGlobe3D = function () {
   /* ---------- scene ---------- */
   const scene = new T.Scene(); scene.background = new T.Color(0x02060f);
   const cam = new T.PerspectiveCamera(40, 1, .005, 200);
+  // The real sun: lights the Earth (day, night with city lights) and the clouds. A soft light that follows the camera
+  // keeps the pigeons readable even over the night side.
   const sun = new T.DirectionalLight(0xfff4e6, 2.2); scene.add(sun); scene.add(sun.target);
-  scene.add(new T.AmbientLight(0x5f7799, .7));
-  const ET = earthTex();
-  const earthMat = new T.MeshPhongMaterial({ map: ET.map, specularMap: ET.spec, specular: new T.Color(0x4a6f99), shininess: 24 });
-  const earth = new T.Mesh(new T.SphereGeometry(1, 128, 64), earthMat); scene.add(earth);
-  const clouds = new T.Mesh(new T.SphereGeometry(1.012, 96, 48), new T.MeshLambertMaterial({ transparent: true, depthWrite: false, opacity: .95 }));
+  const fill = new T.DirectionalLight(0xdfe8ff, .9); scene.add(fill); scene.add(fill.target);
+  scene.add(new T.AmbientLight(0x5f7799, .35));
+  const sunDir = V(1, 0, 0);
+  function realSun(now) {
+    const d = new Date(now), start = Date.UTC(d.getUTCFullYear(), 0, 0), doy = (now - start) / 864e5;
+    const decl = -23.44 * Math.cos(2 * Math.PI / 365 * (doy + 10));
+    const h = d.getUTCHours() + d.getUTCMinutes() / 60 + d.getUTCSeconds() / 3600;
+    return ll(-(h - 12) * 15, decl, 1);
+  }
+
+  const earthGeo = new T.SphereGeometry(1, 160, 80);
+  let earthMat = new T.MeshBasicMaterial({ color: 0x0b2a52 });
+  const earth = new T.Mesh(earthGeo, earthMat); scene.add(earth);
+  function photoEarth(tx) {
+    const tex = (img, srgb) => { const t = new T.Texture(img); if (srgb) t.colorSpace = T.SRGBColorSpace; t.anisotropy = R.capabilities.getMaxAnisotropy(); t.needsUpdate = true; return t; };
+    return new T.ShaderMaterial({
+      uniforms: {
+        dayMap: { value: tex(tx.day, true) }, nightMap: { value: tex(tx.night, true) },
+        waterMap: { value: tex(tx.water) }, bumpMap: { value: tex(tx.bump) },
+        sunDir: { value: sunDir }, texel: { value: new T.Vector2(1 / 2048, 1 / 1024) }
+      },
+      vertexShader: 'varying vec2 vUv;varying vec3 vN;varying vec3 vW;void main(){vUv=uv;vN=normalize(mat3(modelMatrix)*normal);vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;gl_Position=projectionMatrix*viewMatrix*w;}',
+      fragmentShader: [
+        'uniform sampler2D dayMap,nightMap,waterMap,bumpMap;uniform vec3 sunDir;uniform vec2 texel;',
+        'varying vec2 vUv;varying vec3 vN;varying vec3 vW;',
+        'void main(){',
+        ' vec3 n=normalize(vN);vec3 v=normalize(cameraPosition-vW);',
+        // terrain relief from the NASA height map
+        ' float h0=texture2D(bumpMap,vUv).r,hu=texture2D(bumpMap,vUv+vec2(texel.x,0.)).r,hv=texture2D(bumpMap,vUv+vec2(0.,texel.y)).r;',
+        ' vec3 east=normalize(cross(vec3(0.,1.,0.),n)+vec3(1e-5));vec3 north=cross(n,east);',
+        ' vec3 nb=normalize(n-(hu-h0)*5.*east-(hv-h0)*5.*north);',
+        ' float d=dot(nb,sunDir),dn=dot(n,sunDir);',
+        ' float day=smoothstep(-.12,.22,dn);',
+        ' vec3 col=texture2D(dayMap,vUv).rgb;',
+        ' float water=texture2D(waterMap,vUv).r;',
+        ' vec3 lit=col*(max(d,0.)*1.35+.035);',
+        // warm light near the terminator (sunrise / sunset)
+        ' float tw=exp(-pow(dn*6.,2.));lit+=col*vec3(1.,.45,.2)*tw*.35*day;',
+        // sun glint on the oceans
+        ' vec3 hv2=normalize(sunDir+v);float sp=pow(max(dot(n,hv2),0.),160.)*water*day;lit+=vec3(1.,.93,.8)*sp*.5;',
+        ' lit+=vec3(.06,.12,.22)*water*max(dn,0.)*.4;',
+        // city lights on the night side
+        ' vec3 nl=texture2D(nightMap,vUv).rgb;lit+=nl*vec3(1.,.82,.55)*(1.-day)*1.7;',
+        // atmosphere haze at the rim, brighter on the day side
+        ' float rim=pow(1.-max(dot(n,v),0.),3.);lit+=vec3(.3,.55,1.)*rim*.45*smoothstep(-.35,.35,dn);',
+        ' gl_FragColor=vec4(lit,1.);',
+        ' #include <tonemapping_fragment>',
+        ' #include <colorspace_fragment>',
+        '}'
+      ].join('\n')
+    });
+  }
+  (function loadEarth() {
+    const fallback = () => { const ET = earthTex(); earth.material = new T.MeshPhongMaterial({ map: ET.map, specularMap: ET.spec, specular: new T.Color(0x4a6f99), shininess: 24 }); };
+    const Z = window.ZTEX; if (!Z) { fallback(); return; }
+    const keys = ['day', 'night', 'water', 'bump'], imgs = {}; let left = keys.length, failed = false;
+    keys.forEach(k => {
+      const im = new Image();
+      im.onload = () => { imgs[k] = im; if (--left === 0 && !failed) { try { earth.material = photoEarth(imgs); } catch (e) { fallback(); } } };
+      im.onerror = () => { if (!failed) { failed = true; fallback(); } };
+      im.src = Z[k];
+    });
+  })();
+  const clouds = new T.Mesh(new T.SphereGeometry(1.012, 96, 48), new T.ShaderMaterial({
+    uniforms: { map: { value: null }, useR: { value: 0 }, sunDir: { value: sunDir } }, transparent: true, depthWrite: false,
+    vertexShader: 'varying vec2 vUv;varying vec3 vN;void main(){vUv=uv;vN=normalize(mat3(modelMatrix)*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
+    fragmentShader: 'uniform sampler2D map;uniform float useR;uniform vec3 sunDir;varying vec2 vUv;varying vec3 vN;void main(){vec4 t=texture2D(map,vUv);float a=mix(t.a,t.r,useR);float d=dot(normalize(vN),sunDir);float l=max(d,0.)*1.15+.025;vec3 c=vec3(1.)*l+vec3(1.,.5,.25)*exp(-pow(d*6.,2.))*.25;gl_FragColor=vec4(c,a*.88*(.25+.75*smoothstep(-.25,.15,d)));\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}'
+  }));
   clouds.visible = false; scene.add(clouds);
-  setTimeout(() => { clouds.material.map = cloudTex(); clouds.material.needsUpdate = true; clouds.visible = true; }, 60);
+  (function loadClouds() {
+    const proc = () => setTimeout(() => { clouds.material.uniforms.map.value = cloudTex(); clouds.material.uniforms.useR.value = 0; clouds.visible = true; }, 60);
+    const src = window.ZTEX && window.ZTEX.clouds; if (!src) { proc(); return; }
+    const im = new Image();
+    im.onload = () => { const t = new T.Texture(im); t.anisotropy = R.capabilities.getMaxAnisotropy(); t.needsUpdate = true; clouds.material.uniforms.map.value = t; clouds.material.uniforms.useR.value = 1; clouds.visible = true; };
+    im.onerror = proc; im.src = src;
+  })();
   const glowV = 'varying vec3 vN;varying vec3 vV;void main(){vN=normalize(normalMatrix*normal);vec4 mv=modelViewMatrix*vec4(position,1.);vV=normalize(-mv.xyz);gl_Position=projectionMatrix*mv;}';
   scene.add(new T.Mesh(new T.SphereGeometry(1.085, 96, 48), new T.ShaderMaterial({
     vertexShader: glowV, transparent: true, depthWrite: false, side: T.BackSide, blending: T.AdditiveBlending,
@@ -280,7 +351,8 @@ window.createGlobe3D = function () {
     if (rig.pos.length() < 1.03) rig.pos.setLength(1.03);
     cam.position.copy(rig.pos); cam.up.copy(rig.up); cam.lookAt(rig.look);
     const fwd = rig.look.clone().sub(rig.pos).normalize(), right = fwd.clone().cross(rig.up).normalize();
-    sun.position.copy(rig.pos).addScaledVector(right, -1.6).addScaledVector(rig.up, 1.4).setLength(10);
+    sunDir.copy(realSun(now)); sun.position.copy(sunDir).multiplyScalar(10);
+    fill.position.copy(rig.pos).addScaledVector(right, -1.6).addScaledVector(rig.up, 1.4).setLength(10);
     clouds.rotation.y = now * .000006;
     R.render(scene, cam);
   }
