@@ -9,7 +9,11 @@ import { bad, db, FieldValue, getUser, isVip, publicCity, requireUid, Timestamp,
 import { coarse, validLatLon } from './geo';
 import { normalize } from './moderation';
 
-const SETTING_KEYS = ['notif', 'sound', 'showCity', 'calls', 'ghost', 'hideRead', 'badge', 'priority'] as const;
+const SETTING_KEYS = [
+  'notif', 'sound', 'showCity', 'calls', 'ghost', 'hideRead', 'badge', 'priority',
+  'notifPigeon', 'notifMessage', 'notifAccept', 'hidePreview', 'showAchievements', 'effects',
+] as const;
+const EFFECTS = ['full', 'light', 'off'];
 const VIP_ONLY = new Set(['ghost', 'hideRead', 'priority']);
 
 function cleanName(v: unknown) {
@@ -73,20 +77,38 @@ export const updateProfile = onCall(async req => {
     if (!Number.isInteger(tz) || tz < -720 || tz > 840) bad('bad_setting');
     pub.tz = tz;
   }
+  // Gender is private and optional: used only to match pigeons for people who chose to share it.
+  if (d.gender !== undefined) {
+    if (!['m', 'f', ''].includes(d.gender)) bad('bad_setting');
+    priv.gender = d.gender || FieldValue.delete();
+    if (!d.gender) priv.genderMatch = false;
+  }
+  if (d.genderMatch !== undefined) priv.genderMatch = !!d.genderMatch && !!(d.gender ?? u.gender);
   if (d.settings && typeof d.settings === 'object') {
     for (const k of SETTING_KEYS) {
       if (!(k in d.settings)) continue;
       const v = d.settings[k];
       if (k === 'calls') { if (!['all', 'ten', 'none'].includes(v)) bad('bad_setting'); }
+      else if (k === 'effects') { if (!EFFECTS.includes(v)) bad('bad_setting'); }
       else if (typeof v !== 'boolean') bad('bad_setting');
       if (VIP_ONLY.has(k) && v === true && !isVip(u)) bad('vip_only');
       priv[`settings.${k}`] = v;
     }
     if ('showCity' in d.settings) pub.city = d.settings.showCity === false ? '' : u.city;
     if ('badge' in d.settings) pub.badge = !!d.settings.badge;
+    if ('showAchievements' in d.settings) pub.showAchievements = !!d.settings.showAchievements;
   }
   await db().doc(`users/${uid}`).update(priv);
   if (Object.keys(pub).length) await db().doc(`profiles/${uid}`).set(pub, { merge: true });
+  return { ok: true };
+});
+
+/** The app shows a moderator's warning once; this clears it. Restrictions stay until they end. */
+export const ackNotice = onCall(async req => {
+  const uid = requireUid(req);
+  const u = await getUser(uid);
+  if (u.notice?.kind === 'warn') await db().doc(`users/${uid}`).update({ notice: FieldValue.delete() });
+  else if (u.notice) await db().doc(`users/${uid}`).update({ 'notice.seen': true });
   return { ok: true };
 });
 

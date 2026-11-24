@@ -41,6 +41,12 @@ export interface UserDoc extends DocumentData {
   };
 }
 
+/** Accounts a moderator restricted cannot send pigeons, messages or calls until the date passes. */
+export function checkRestricted(u: Partial<UserDoc>) {
+  const until = (u as any).restrictedUntil as Timestamp | undefined;
+  if (until && until.toMillis() > Date.now()) fail('restricted', new Date(until.toMillis()).toISOString());
+}
+
 export const isVip = (u: Partial<UserDoc>) => !!u.vipUntil && u.vipUntil.toMillis() > Date.now();
 export const todayUtc = () => new Date().toISOString().slice(0, 10);
 export const sha = (s: string) => createHash('sha256').update(s).digest('hex');

@@ -9,4 +9,6 @@ deployment:
     - /bin/cp server/deploy/package.json server/firestore.rules server/firestore.indexes.json $DEPLOYPATH/
     - /bin/touch $DEPLOYPATH/tmp/restart.txt
     - /bin/mkdir -p /home/miraauku/bawer-kalash.com/zajel
+    - /bin/mkdir -p /home/miraauku/bawer-kalash.com/zajel/admin
+    - /bin/cp store/admin/index.html /home/miraauku/bawer-kalash.com/zajel/admin/
     - /bin/cp store/privacy.html store/terms.html store/delete-account.html store/child-safety.html /home/miraauku/bawer-kalash.com/zajel/

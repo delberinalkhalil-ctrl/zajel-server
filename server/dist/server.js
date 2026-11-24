@@ -34,12 +34,12 @@ if ((0, import_node_fs.existsSync)(file)) {
 }
 
 // src/server.ts
-var import_node_fs6 = require("node:fs");
-var import_node_path6 = require("node:path");
+var import_node_fs7 = require("node:fs");
+var import_node_path7 = require("node:path");
 var import_express = __toESM(require("express"));
 var import_app2 = require("firebase-admin/app");
-var import_auth2 = require("firebase-admin/auth");
-var import_firestore3 = require("firebase-admin/firestore");
+var import_auth3 = require("firebase-admin/auth");
+var import_firestore4 = require("firebase-admin/firestore");
 
 // src/config.ts
 var FREE_MODE = (process.env.FREE_MODE ?? "1") !== "0";
@@ -237,6 +237,10 @@ var fail = (code, detail) => {
 var bad = (code) => {
   throw new HttpsError("invalid-argument", code);
 };
+function checkRestricted(u) {
+  const until = u.restrictedUntil;
+  if (until && until.toMillis() > Date.now()) fail("restricted", new Date(until.toMillis()).toISOString());
+}
 var isVip = (u) => !!u.vipUntil && u.vipUntil.toMillis() > Date.now();
 var todayUtc = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
 var sha = (s) => (0, import_node_crypto2.createHash)("sha256").update(s).digest("hex");
@@ -289,7 +293,23 @@ function checkText(text, max, strict) {
 }
 
 // src/users.ts
-var SETTING_KEYS = ["notif", "sound", "showCity", "calls", "ghost", "hideRead", "badge", "priority"];
+var SETTING_KEYS = [
+  "notif",
+  "sound",
+  "showCity",
+  "calls",
+  "ghost",
+  "hideRead",
+  "badge",
+  "priority",
+  "notifPigeon",
+  "notifMessage",
+  "notifAccept",
+  "hidePreview",
+  "showAchievements",
+  "effects"
+];
+var EFFECTS = ["full", "light", "off"];
 var VIP_ONLY = /* @__PURE__ */ new Set(["ghost", "hideRead", "priority"]);
 function cleanName2(v) {
   const n = normalize(v).replace(/\n/g, " ");
@@ -366,21 +386,37 @@ var updateProfile = onCall(async (req) => {
     if (!Number.isInteger(tz) || tz < -720 || tz > 840) bad("bad_setting");
     pub.tz = tz;
   }
+  if (d.gender !== void 0) {
+    if (!["m", "f", ""].includes(d.gender)) bad("bad_setting");
+    priv.gender = d.gender || import_firestore.FieldValue.delete();
+    if (!d.gender) priv.genderMatch = false;
+  }
+  if (d.genderMatch !== void 0) priv.genderMatch = !!d.genderMatch && !!(d.gender ?? u.gender);
   if (d.settings && typeof d.settings === "object") {
     for (const k of SETTING_KEYS) {
       if (!(k in d.settings)) continue;
       const v = d.settings[k];
       if (k === "calls") {
         if (!["all", "ten", "none"].includes(v)) bad("bad_setting");
+      } else if (k === "effects") {
+        if (!EFFECTS.includes(v)) bad("bad_setting");
       } else if (typeof v !== "boolean") bad("bad_setting");
       if (VIP_ONLY.has(k) && v === true && !isVip(u)) bad("vip_only");
       priv[`settings.${k}`] = v;
     }
     if ("showCity" in d.settings) pub.city = d.settings.showCity === false ? "" : u.city;
     if ("badge" in d.settings) pub.badge = !!d.settings.badge;
+    if ("showAchievements" in d.settings) pub.showAchievements = !!d.settings.showAchievements;
   }
   await db().doc(`users/${uid}`).update(priv);
   if (Object.keys(pub).length) await db().doc(`profiles/${uid}`).set(pub, { merge: true });
+  return { ok: true };
+});
+var ackNotice = onCall(async (req) => {
+  const uid = requireUid(req);
+  const u = await getUser(uid);
+  if (u.notice?.kind === "warn") await db().doc(`users/${uid}`).update({ notice: import_firestore.FieldValue.delete() });
+  else if (u.notice) await db().doc(`users/${uid}`).update({ "notice.seen": true });
   return { ok: true };
 });
 var registerToken = onCall(async (req) => {
@@ -421,32 +457,39 @@ var deleteAccount = onCall(async (req) => {
 var import_messaging = require("firebase-admin/messaging");
 var import_firestore2 = require("firebase-admin/firestore");
 var T = {
-  ar: { landed_t: "\u062D\u0637\u0651 \u0639\u0646\u062F\u0643 \u0632\u0627\u062C\u0644!", landed_b: "\u0631\u0633\u0627\u0644\u0629 \u0645\u0646 {city}\u060C {country}", caught_t: "{name} \u0627\u0644\u062A\u0642\u0637 \u0632\u0627\u062C\u0644\u0643", caught_b: "\u0641\u064A {city}. \u0642\u0644 \u0645\u0631\u062D\u0628\u0627\u064B!", call_t: "{name} \u064A\u062A\u0635\u0644 \u0628\u0643", voice: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u0645\u062A\u0631\u062C\u0645\u0629", video: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u0645\u062A\u0631\u062C\u0645\u0629", expired_t: "\u0639\u0627\u062F \u0632\u0627\u062C\u0644\u0643", expired_b: "\u0644\u0645 \u064A\u0644\u062A\u0642\u0637\u0647 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0629. \u062C\u0631\u0651\u0628 \u0625\u0637\u0644\u0627\u0642 \u0632\u0627\u062C\u0644 \u0622\u062E\u0631." },
-  en: { landed_t: "A pigeon landed with you!", landed_b: "A letter from {city}, {country}", caught_t: "{name} caught your pigeon", caught_b: "In {city}. Say hello!", call_t: "{name} is calling", voice: "Translated voice call", video: "Translated video call", expired_t: "Your pigeon came back", expired_b: "Nobody caught it this time. Try sending another." },
-  fr: { landed_t: "Un pigeon s\u2019est pos\xE9 chez vous !", landed_b: "Une lettre de {city}, {country}", caught_t: "{name} a attrap\xE9 votre pigeon", caught_b: "\xC0 {city}. Dites bonjour !", call_t: "{name} vous appelle", voice: "Appel vocal traduit", video: "Appel vid\xE9o traduit", expired_t: "Votre pigeon est revenu", expired_b: "Personne ne l\u2019a attrap\xE9 cette fois. Envoyez-en un autre." },
-  tr: { landed_t: "Sana bir g\xFCvercin kondu!", landed_b: "{city}, {country} \u015Fehrinden bir mektup", caught_t: "{name} g\xFCvercinini yakalad\u0131", caught_b: "{city} \u015Fehrinde. Merhaba de!", call_t: "{name} seni ar\u0131yor", voice: "\xC7evirili sesli arama", video: "\xC7evirili g\xF6r\xFCnt\xFCl\xFC arama", expired_t: "G\xFCvercinin geri d\xF6nd\xFC", expired_b: "Bu sefer kimse yakalamad\u0131. Bir tane daha g\xF6nder." },
-  he: { landed_t: "\u05D9\u05D5\u05E0\u05D4 \u05E0\u05D7\u05EA\u05D4 \u05D0\u05E6\u05DC\u05DA!", landed_b: "\u05DE\u05DB\u05EA\u05D1 \u05DE{city}, {country}", caught_t: "{name} \u05EA\u05E4\u05E1/\u05D4 \u05D0\u05EA \u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA", caught_b: "\u05D1{city}. \u05EA\u05D2\u05D9\u05D3/\u05D9 \u05E9\u05DC\u05D5\u05DD!", call_t: "{name} \u05DE\u05EA\u05E7\u05E9\u05E8/\u05EA", voice: "\u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", video: "\u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", expired_t: "\u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA \u05D7\u05D6\u05E8\u05D4", expired_b: "\u05D0\u05E3 \u05D0\u05D7\u05D3 \u05DC\u05D0 \u05EA\u05E4\u05E1 \u05D0\u05D5\u05EA\u05D4 \u05D4\u05E4\u05E2\u05DD. \u05E0\u05E1\u05D4/\u05D9 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E2\u05D5\u05D3 \u05D0\u05D7\u05EA." },
-  es: { landed_t: "\xA1Una paloma aterriz\xF3 contigo!", landed_b: "Una carta desde {city}, {country}", caught_t: "{name} atrap\xF3 tu paloma", caught_b: "En {city}. \xA1Saluda!", call_t: "{name} te est\xE1 llamando", voice: "Llamada de voz traducida", video: "Videollamada traducida", expired_t: "Tu paloma volvi\xF3", expired_b: "Nadie la atrap\xF3 esta vez. Prueba a enviar otra." },
-  pt: { landed_t: "Um pombo pousou com voc\xEA!", landed_b: "Uma carta de {city}, {country}", caught_t: "{name} pegou o seu pombo", caught_b: "Em {city}. Diga ol\xE1!", call_t: "{name} est\xE1 ligando", voice: "Chamada de voz traduzida", video: "Videochamada traduzida", expired_t: "Seu pombo voltou", expired_b: "Ningu\xE9m o pegou desta vez. Tente enviar outro." },
-  fa: { landed_t: "\u06CC\u06A9 \u06A9\u0628\u0648\u062A\u0631 \u067E\u06CC\u0634 \u062A\u0648 \u0646\u0634\u0633\u062A!", landed_b: "\u0646\u0627\u0645\u0647\u200C\u0627\u06CC \u0627\u0632 {city}\u060C {country}", caught_t: "{name} \u06A9\u0628\u0648\u062A\u0631\u062A \u0631\u0627 \u06AF\u0631\u0641\u062A", caught_b: "\u062F\u0631 {city}. \u0633\u0644\u0627\u0645 \u06A9\u0646!", call_t: "{name} \u062F\u0631 \u062D\u0627\u0644 \u062A\u0645\u0627\u0633 \u0627\u0633\u062A", voice: "\u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", video: "\u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", expired_t: "\u06A9\u0628\u0648\u062A\u0631\u062A \u0628\u0631\u06AF\u0634\u062A", expired_b: "\u0627\u06CC\u0646 \u0628\u0627\u0631 \u06A9\u0633\u06CC \u0622\u0646 \u0631\u0627 \u0646\u06AF\u0631\u0641\u062A. \u06CC\u06A9\u06CC \u062F\u06CC\u06AF\u0631 \u0628\u0641\u0631\u0633\u062A." },
-  ru: { landed_t: "\u041A \u0432\u0430\u043C \u043F\u0440\u0438\u043B\u0435\u0442\u0435\u043B \u0433\u043E\u043B\u0443\u0431\u044C!", landed_b: "\u041F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 {city}, {country}", caught_t: "{name} \u043F\u043E\u0439\u043C\u0430\u043B(\u0430) \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u044F", caught_b: "\u0412 {city}. \u041F\u043E\u0437\u0434\u043E\u0440\u043E\u0432\u0430\u0439\u0442\u0435\u0441\u044C!", call_t: "{name} \u0437\u0432\u043E\u043D\u0438\u0442 \u0432\u0430\u043C", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", video: "\u0412\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", expired_t: "\u0412\u0430\u0448 \u0433\u043E\u043B\u0443\u0431\u044C \u0432\u0435\u0440\u043D\u0443\u043B\u0441\u044F", expired_b: "\u0412 \u044D\u0442\u043E\u0442 \u0440\u0430\u0437 \u0435\u0433\u043E \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u043F\u043E\u0439\u043C\u0430\u043B. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0449\u0451 \u043E\u0434\u043D\u043E\u0433\u043E." },
-  de: { landed_t: "Eine Taube ist bei dir gelandet!", landed_b: "Ein Brief aus {city}, {country}", caught_t: "{name} hat deine Taube gefangen", caught_b: "In {city}. Sag hallo!", call_t: "{name} ruft dich an", voice: "\xDCbersetzter Sprachanruf", video: "\xDCbersetzter Videoanruf", expired_t: "Deine Taube ist zur\xFCck", expired_b: "Diesmal hat sie niemand gefangen. Schick eine neue." },
-  it: { landed_t: "Un piccione \xE8 atterrato da te!", landed_b: "Una lettera da {city}, {country}", caught_t: "{name} ha preso il tuo piccione", caught_b: "A {city}. Saluta!", call_t: "{name} ti sta chiamando", voice: "Chiamata vocale tradotta", video: "Videochiamata tradotta", expired_t: "Il tuo piccione \xE8 tornato", expired_b: "Questa volta nessuno l'ha preso. Prova a mandarne un altro." },
-  uk: { landed_t: "\u0414\u043E \u0442\u0435\u0431\u0435 \u043F\u0440\u0438\u043B\u0435\u0442\u0456\u0432 \u0433\u043E\u043B\u0443\u0431!", landed_b: "\u041B\u0438\u0441\u0442 \u0456\u0437 {city}, {country}", caught_t: "{name} \u0441\u043F\u0456\u0439\u043C\u0430\u0432(\u043B\u0430) \u0442\u0432\u043E\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u0430", caught_b: "\u0423 {city}. \u041F\u0440\u0438\u0432\u0456\u0442\u0430\u0439\u0441\u044F!", call_t: "{name} \u0434\u0437\u0432\u043E\u043D\u0438\u0442\u044C \u0442\u043E\u0431\u0456", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", video: "\u0412\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", expired_t: "\u0422\u0432\u0456\u0439 \u0433\u043E\u043B\u0443\u0431 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0432\u0441\u044F", expired_b: "\u0426\u044C\u043E\u0433\u043E \u0440\u0430\u0437\u0443 \u0439\u043E\u0433\u043E \u043D\u0456\u0445\u0442\u043E \u043D\u0435 \u0441\u043F\u0456\u0439\u043C\u0430\u0432. \u041D\u0430\u0434\u0456\u0448\u043B\u0438 \u0449\u0435 \u043E\u0434\u043D\u043E\u0433\u043E." },
-  zh: { landed_t: "\u4E00\u53EA\u4FE1\u9E3D\u843D\u5728\u4F60\u8FD9\u91CC\uFF01", landed_b: "\u6765\u81EA{country}{city}\u7684\u4FE1", caught_t: "{name} \u63A5\u4F4F\u4E86\u4F60\u7684\u4FE1\u9E3D", caught_b: "\u5728{city}\u3002\u6253\u4E2A\u62DB\u547C\u5427\uFF01", call_t: "{name} \u6B63\u5728\u547C\u53EB\u4F60", voice: "\u7FFB\u8BD1\u8BED\u97F3\u901A\u8BDD", video: "\u7FFB\u8BD1\u89C6\u9891\u901A\u8BDD", expired_t: "\u4F60\u7684\u4FE1\u9E3D\u98DE\u56DE\u6765\u4E86", expired_b: "\u8FD9\u6B21\u6CA1\u6709\u4EBA\u63A5\u4F4F\u5B83\u3002\u518D\u653E\u98DE\u4E00\u53EA\u5427\u3002" },
-  hi: { landed_t: "\u0906\u092A\u0915\u0947 \u092A\u093E\u0938 \u090F\u0915 \u0915\u092C\u0942\u0924\u0930 \u0909\u0924\u0930\u093E!", landed_b: "{city}, {country} \u0938\u0947 \u090F\u0915 \u091A\u093F\u091F\u094D\u0920\u0940", caught_t: "{name} \u0928\u0947 \u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u092A\u0915\u0921\u093C\u093E", caught_b: "{city} \u092E\u0947\u0902\u0964 \u0928\u092E\u0938\u094D\u0924\u0947 \u0915\u0939\u093F\u090F!", call_t: "{name} \u0915\u0949\u0932 \u0915\u0930 \u0930\u0939\u0947 \u0939\u0948\u0902", voice: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932", video: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932", expired_t: "\u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u0932\u094C\u091F \u0906\u092F\u093E", expired_b: "\u0907\u0938 \u092C\u093E\u0930 \u0915\u093F\u0938\u0940 \u0928\u0947 \u0928\u0939\u0940\u0902 \u092A\u0915\u0921\u093C\u093E\u0964 \u090F\u0915 \u0914\u0930 \u092D\u0947\u091C\u093F\u090F\u0964" },
-  ku: { landed_t: "Kevokek li cem te daket!", landed_b: "Nameyek ji {city}, {country}", caught_t: "{name} kevoka te girt", caught_b: "Li {city}. Silav bike!", call_t: "{name} li te digere", voice: "Banga deng\xEE ya wergerand\xEE", video: "Banga v\xEEdyoy\xEE ya wergerand\xEE", expired_t: "Kevoka te vegeriya", expired_b: "V\xEA car\xEA kes\xEE ew negirt. Yeke din bi\u015F\xEEne." }
+  ar: { landed_t: "\u062D\u0637\u0651 \u0639\u0646\u062F\u0643 \u0632\u0627\u062C\u0644!", landed_b: "\u0631\u0633\u0627\u0644\u0629 \u0645\u0646 {city}\u060C {country}", caught_t: "{name} \u0627\u0644\u062A\u0642\u0637 \u0632\u0627\u062C\u0644\u0643", caught_b: "\u0641\u064A {city}. \u0642\u0644 \u0645\u0631\u062D\u0628\u0627\u064B!", call_t: "{name} \u064A\u062A\u0635\u0644 \u0628\u0643", voice: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u0645\u062A\u0631\u062C\u0645\u0629", video: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u0645\u062A\u0631\u062C\u0645\u0629", expired_t: "\u0639\u0627\u062F \u0632\u0627\u062C\u0644\u0643", expired_b: "\u0644\u0645 \u064A\u0644\u062A\u0642\u0637\u0647 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0629. \u062C\u0631\u0651\u0628 \u0625\u0637\u0644\u0627\u0642 \u0632\u0627\u062C\u0644 \u0622\u062E\u0631.", app: "\u0632\u0627\u062C\u0644", hidden: "\u0644\u062F\u064A\u0643 \u0625\u0634\u0639\u0627\u0631 \u062C\u062F\u064A\u062F" },
+  en: { landed_t: "A pigeon landed with you!", landed_b: "A letter from {city}, {country}", caught_t: "{name} caught your pigeon", caught_b: "In {city}. Say hello!", call_t: "{name} is calling", voice: "Translated voice call", video: "Translated video call", expired_t: "Your pigeon came back", expired_b: "Nobody caught it this time. Try sending another.", app: "Zajel", hidden: "You have a new notification" },
+  fr: { landed_t: "Un pigeon s\u2019est pos\xE9 chez vous !", landed_b: "Une lettre de {city}, {country}", caught_t: "{name} a attrap\xE9 votre pigeon", caught_b: "\xC0 {city}. Dites bonjour !", call_t: "{name} vous appelle", voice: "Appel vocal traduit", video: "Appel vid\xE9o traduit", expired_t: "Votre pigeon est revenu", expired_b: "Personne ne l\u2019a attrap\xE9 cette fois. Envoyez-en un autre.", app: "Zajel", hidden: "Vous avez une nouvelle notification" },
+  tr: { landed_t: "Sana bir g\xFCvercin kondu!", landed_b: "{city}, {country} \u015Fehrinden bir mektup", caught_t: "{name} g\xFCvercinini yakalad\u0131", caught_b: "{city} \u015Fehrinde. Merhaba de!", call_t: "{name} seni ar\u0131yor", voice: "\xC7evirili sesli arama", video: "\xC7evirili g\xF6r\xFCnt\xFCl\xFC arama", expired_t: "G\xFCvercinin geri d\xF6nd\xFC", expired_b: "Bu sefer kimse yakalamad\u0131. Bir tane daha g\xF6nder.", app: "Zajel", hidden: "Yeni bir bildirimin var" },
+  he: { landed_t: "\u05D9\u05D5\u05E0\u05D4 \u05E0\u05D7\u05EA\u05D4 \u05D0\u05E6\u05DC\u05DA!", landed_b: "\u05DE\u05DB\u05EA\u05D1 \u05DE{city}, {country}", caught_t: "{name} \u05EA\u05E4\u05E1/\u05D4 \u05D0\u05EA \u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA", caught_b: "\u05D1{city}. \u05EA\u05D2\u05D9\u05D3/\u05D9 \u05E9\u05DC\u05D5\u05DD!", call_t: "{name} \u05DE\u05EA\u05E7\u05E9\u05E8/\u05EA", voice: "\u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", video: "\u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", expired_t: "\u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA \u05D7\u05D6\u05E8\u05D4", expired_b: "\u05D0\u05E3 \u05D0\u05D7\u05D3 \u05DC\u05D0 \u05EA\u05E4\u05E1 \u05D0\u05D5\u05EA\u05D4 \u05D4\u05E4\u05E2\u05DD. \u05E0\u05E1\u05D4/\u05D9 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E2\u05D5\u05D3 \u05D0\u05D7\u05EA.", app: "Zajel", hidden: "\u05D9\u05E9 \u05DC\u05DA \u05D4\u05EA\u05E8\u05D0\u05D4 \u05D7\u05D3\u05E9\u05D4" },
+  es: { landed_t: "\xA1Una paloma aterriz\xF3 contigo!", landed_b: "Una carta desde {city}, {country}", caught_t: "{name} atrap\xF3 tu paloma", caught_b: "En {city}. \xA1Saluda!", call_t: "{name} te est\xE1 llamando", voice: "Llamada de voz traducida", video: "Videollamada traducida", expired_t: "Tu paloma volvi\xF3", expired_b: "Nadie la atrap\xF3 esta vez. Prueba a enviar otra.", app: "Zajel", hidden: "Tienes una notificaci\xF3n nueva" },
+  pt: { landed_t: "Um pombo pousou com voc\xEA!", landed_b: "Uma carta de {city}, {country}", caught_t: "{name} pegou o seu pombo", caught_b: "Em {city}. Diga ol\xE1!", call_t: "{name} est\xE1 ligando", voice: "Chamada de voz traduzida", video: "Videochamada traduzida", expired_t: "Seu pombo voltou", expired_b: "Ningu\xE9m o pegou desta vez. Tente enviar outro.", app: "Zajel", hidden: "Voc\xEA tem uma nova notifica\xE7\xE3o" },
+  fa: { landed_t: "\u06CC\u06A9 \u06A9\u0628\u0648\u062A\u0631 \u067E\u06CC\u0634 \u062A\u0648 \u0646\u0634\u0633\u062A!", landed_b: "\u0646\u0627\u0645\u0647\u200C\u0627\u06CC \u0627\u0632 {city}\u060C {country}", caught_t: "{name} \u06A9\u0628\u0648\u062A\u0631\u062A \u0631\u0627 \u06AF\u0631\u0641\u062A", caught_b: "\u062F\u0631 {city}. \u0633\u0644\u0627\u0645 \u06A9\u0646!", call_t: "{name} \u062F\u0631 \u062D\u0627\u0644 \u062A\u0645\u0627\u0633 \u0627\u0633\u062A", voice: "\u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", video: "\u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", expired_t: "\u06A9\u0628\u0648\u062A\u0631\u062A \u0628\u0631\u06AF\u0634\u062A", expired_b: "\u0627\u06CC\u0646 \u0628\u0627\u0631 \u06A9\u0633\u06CC \u0622\u0646 \u0631\u0627 \u0646\u06AF\u0631\u0641\u062A. \u06CC\u06A9\u06CC \u062F\u06CC\u06AF\u0631 \u0628\u0641\u0631\u0633\u062A.", app: "\u0632\u0627\u062C\u0644", hidden: "\u06CC\u06A9 \u0627\u0639\u0644\u0627\u0646 \u062C\u062F\u06CC\u062F \u062F\u0627\u0631\u06CC" },
+  ru: { landed_t: "\u041A \u0432\u0430\u043C \u043F\u0440\u0438\u043B\u0435\u0442\u0435\u043B \u0433\u043E\u043B\u0443\u0431\u044C!", landed_b: "\u041F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 {city}, {country}", caught_t: "{name} \u043F\u043E\u0439\u043C\u0430\u043B(\u0430) \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u044F", caught_b: "\u0412 {city}. \u041F\u043E\u0437\u0434\u043E\u0440\u043E\u0432\u0430\u0439\u0442\u0435\u0441\u044C!", call_t: "{name} \u0437\u0432\u043E\u043D\u0438\u0442 \u0432\u0430\u043C", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", video: "\u0412\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", expired_t: "\u0412\u0430\u0448 \u0433\u043E\u043B\u0443\u0431\u044C \u0432\u0435\u0440\u043D\u0443\u043B\u0441\u044F", expired_b: "\u0412 \u044D\u0442\u043E\u0442 \u0440\u0430\u0437 \u0435\u0433\u043E \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u043F\u043E\u0439\u043C\u0430\u043B. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0449\u0451 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0432\u0430\u0441 \u043D\u043E\u0432\u043E\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435" },
+  de: { landed_t: "Eine Taube ist bei dir gelandet!", landed_b: "Ein Brief aus {city}, {country}", caught_t: "{name} hat deine Taube gefangen", caught_b: "In {city}. Sag hallo!", call_t: "{name} ruft dich an", voice: "\xDCbersetzter Sprachanruf", video: "\xDCbersetzter Videoanruf", expired_t: "Deine Taube ist zur\xFCck", expired_b: "Diesmal hat sie niemand gefangen. Schick eine neue.", app: "Zajel", hidden: "Du hast eine neue Benachrichtigung" },
+  it: { landed_t: "Un piccione \xE8 atterrato da te!", landed_b: "Una lettera da {city}, {country}", caught_t: "{name} ha preso il tuo piccione", caught_b: "A {city}. Saluta!", call_t: "{name} ti sta chiamando", voice: "Chiamata vocale tradotta", video: "Videochiamata tradotta", expired_t: "Il tuo piccione \xE8 tornato", expired_b: "Questa volta nessuno l'ha preso. Prova a mandarne un altro.", app: "Zajel", hidden: "Hai una nuova notifica" },
+  uk: { landed_t: "\u0414\u043E \u0442\u0435\u0431\u0435 \u043F\u0440\u0438\u043B\u0435\u0442\u0456\u0432 \u0433\u043E\u043B\u0443\u0431!", landed_b: "\u041B\u0438\u0441\u0442 \u0456\u0437 {city}, {country}", caught_t: "{name} \u0441\u043F\u0456\u0439\u043C\u0430\u0432(\u043B\u0430) \u0442\u0432\u043E\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u0430", caught_b: "\u0423 {city}. \u041F\u0440\u0438\u0432\u0456\u0442\u0430\u0439\u0441\u044F!", call_t: "{name} \u0434\u0437\u0432\u043E\u043D\u0438\u0442\u044C \u0442\u043E\u0431\u0456", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", video: "\u0412\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", expired_t: "\u0422\u0432\u0456\u0439 \u0433\u043E\u043B\u0443\u0431 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0432\u0441\u044F", expired_b: "\u0426\u044C\u043E\u0433\u043E \u0440\u0430\u0437\u0443 \u0439\u043E\u0433\u043E \u043D\u0456\u0445\u0442\u043E \u043D\u0435 \u0441\u043F\u0456\u0439\u043C\u0430\u0432. \u041D\u0430\u0434\u0456\u0448\u043B\u0438 \u0449\u0435 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0442\u0435\u0431\u0435 \u043D\u043E\u0432\u0435 \u0441\u043F\u043E\u0432\u0456\u0449\u0435\u043D\u043D\u044F" },
+  zh: { landed_t: "\u4E00\u53EA\u4FE1\u9E3D\u843D\u5728\u4F60\u8FD9\u91CC\uFF01", landed_b: "\u6765\u81EA{country}{city}\u7684\u4FE1", caught_t: "{name} \u63A5\u4F4F\u4E86\u4F60\u7684\u4FE1\u9E3D", caught_b: "\u5728{city}\u3002\u6253\u4E2A\u62DB\u547C\u5427\uFF01", call_t: "{name} \u6B63\u5728\u547C\u53EB\u4F60", voice: "\u7FFB\u8BD1\u8BED\u97F3\u901A\u8BDD", video: "\u7FFB\u8BD1\u89C6\u9891\u901A\u8BDD", expired_t: "\u4F60\u7684\u4FE1\u9E3D\u98DE\u56DE\u6765\u4E86", expired_b: "\u8FD9\u6B21\u6CA1\u6709\u4EBA\u63A5\u4F4F\u5B83\u3002\u518D\u653E\u98DE\u4E00\u53EA\u5427\u3002", app: "Zajel", hidden: "\u4F60\u6709\u4E00\u6761\u65B0\u901A\u77E5" },
+  hi: { landed_t: "\u0906\u092A\u0915\u0947 \u092A\u093E\u0938 \u090F\u0915 \u0915\u092C\u0942\u0924\u0930 \u0909\u0924\u0930\u093E!", landed_b: "{city}, {country} \u0938\u0947 \u090F\u0915 \u091A\u093F\u091F\u094D\u0920\u0940", caught_t: "{name} \u0928\u0947 \u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u092A\u0915\u0921\u093C\u093E", caught_b: "{city} \u092E\u0947\u0902\u0964 \u0928\u092E\u0938\u094D\u0924\u0947 \u0915\u0939\u093F\u090F!", call_t: "{name} \u0915\u0949\u0932 \u0915\u0930 \u0930\u0939\u0947 \u0939\u0948\u0902", voice: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932", video: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932", expired_t: "\u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u0932\u094C\u091F \u0906\u092F\u093E", expired_b: "\u0907\u0938 \u092C\u093E\u0930 \u0915\u093F\u0938\u0940 \u0928\u0947 \u0928\u0939\u0940\u0902 \u092A\u0915\u0921\u093C\u093E\u0964 \u090F\u0915 \u0914\u0930 \u092D\u0947\u091C\u093F\u090F\u0964", app: "Zajel", hidden: "\u0906\u092A\u0915\u0947 \u0932\u093F\u090F \u090F\u0915 \u0928\u0908 \u0938\u0942\u091A\u0928\u093E \u0939\u0948" },
+  ku: { landed_t: "Kevokek li cem te daket!", landed_b: "Nameyek ji {city}, {country}", caught_t: "{name} kevoka te girt", caught_b: "Li {city}. Silav bike!", call_t: "{name} li te digere", voice: "Banga deng\xEE ya wergerand\xEE", video: "Banga v\xEEdyoy\xEE ya wergerand\xEE", expired_t: "Kevoka te vegeriya", expired_b: "V\xEA car\xEA kes\xEE ew negirt. Yeke din bi\u015F\xEEne.", app: "Zajel", hidden: "Agahdariyek n\xFB ji te re heye" }
 };
 function fmt(lang, key, vars = {}) {
   const s = (T[lang] ?? T.en)[key];
   return s.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
-async function pushTo(uid, msg) {
+var KIND_SETTING = { pigeon: "notifPigeon", message: "notifMessage", accept: "notifAccept" };
+async function pushTo(uid, msg, kind = msg.call ? "call" : "system") {
   const db2 = (0, import_firestore2.getFirestore)();
   const ref = db2.doc(`users/${uid}`);
   const snap = await ref.get();
   const u = snap.data();
-  if (!u || u.settings?.notif === false && !msg.call) return;
+  if (!u) return;
+  if (kind !== "call") {
+    if (u.settings?.notif === false) return;
+    const k = KIND_SETTING[kind];
+    if (k && u.settings?.[k] === false) return;
+    if (u.settings?.hidePreview && kind !== "system") msg = { ...msg, title: fmt(u.lang, "app"), body: fmt(u.lang, "hidden") };
+  }
   const tokens = (u.fcm ?? []).slice(-10);
   if (!tokens.length) return;
   try {
@@ -468,26 +511,75 @@ async function pushTo(uid, msg) {
   }
 }
 
+// src/regions.ts
+var REGIONS = ["AF", "AS", "EU", "NA", "SA", "OC"];
+var BY_REGION = {
+  AF: "AO BF BI BJ BW CD CF CG CI CM DJ DZ EG EH ER ET GA GH GM GN GQ GW KE LR LS LY MA MG ML MR MW MZ NA NE NG RW SD SL SN SO SS SZ TD TG TN TZ UG ZA ZM ZW",
+  AS: "AE AF AM AZ BD BN BT CN CY GE ID IL IN IQ IR JO JP KG KH KP KR KW KZ LA LB LK MM MN MY NP OM PH PK PS QA SA SY TH TJ TL TM TR TW UZ VN YE",
+  EU: "AL AT BA BE BG BY CH CZ DE DK EE ES FI FR GB GR HR HU IE IS IT LT LU LV MD ME MK NL NO PL PT RO RS RU SE SI SK UA",
+  NA: "BS BZ CA CR CU DO GL GT HN HT JM MX NI PA PR SV TT US",
+  SA: "AR BO BR CL CO EC FK GY PE PY SR UY VE",
+  OC: "AU FJ NC NZ PG SB VU AQ TF"
+};
+var REGION_OF = {};
+for (const r2 of REGIONS) for (const c of BY_REGION[r2].split(" ")) REGION_OF[c] = r2;
+var regionOf = (country) => REGION_OF[country] ?? null;
+var isRegion = (v) => typeof v === "string" && REGIONS.includes(v);
+function matchesWant(c, w, year = (/* @__PURE__ */ new Date()).getUTCFullYear()) {
+  if (w.country && c.country !== w.country) return false;
+  if (w.region && regionOf(c.country) !== w.region) return false;
+  if (w.lang && c.lang !== w.lang) return false;
+  if (w.ageMin || w.ageMax) {
+    if (!c.birthYear) return false;
+    const age = year - c.birthYear;
+    if (w.ageMin && age < w.ageMin) return false;
+    if (w.ageMax && age > w.ageMax) return false;
+  }
+  if (w.gender) {
+    if (!c.genderMatch || c.gender !== w.gender) return false;
+  }
+  return true;
+}
+function readWant(d, isLang2) {
+  const w = {};
+  if (!d) return w;
+  if (typeof d.region === "string" && isRegion(d.region)) w.region = d.region;
+  if (isLang2(d.lang)) w.lang = d.lang;
+  const min = Math.round(Number(d.ageMin)), max = Math.round(Number(d.ageMax));
+  if (Number.isFinite(min) && min >= 18 && min <= 100) w.ageMin = min;
+  if (Number.isFinite(max) && max >= 18 && max <= 100) w.ageMax = max;
+  if (w.ageMin && w.ageMax && w.ageMin > w.ageMax) [w.ageMin, w.ageMax] = [w.ageMax, w.ageMin];
+  if (d.gender === "m" || d.gender === "f") w.gender = d.gender;
+  return w;
+}
+var hasWant = (w) => !!(w.region || w.lang || w.ageMin || w.ageMax || w.gender);
+
 // src/pigeons.ts
 async function pickRecipient(p, sender) {
   const users = db().collection("users");
   let q = users.where("receiving", "==", true).where("banned", "==", false);
   if (p.wantCountry) q = q.where("country", "==", p.wantCountry);
+  const want = p.want ?? {};
+  const n = hasWant(want) ? 60 : 25;
   const r2 = Math.random();
   const [a, b] = await Promise.all([
-    q.where("rand", ">=", r2).orderBy("rand").limit(25).get(),
-    q.where("rand", "<", r2).orderBy("rand", "desc").limit(25).get()
+    q.where("rand", ">=", r2).orderBy("rand").limit(n).get(),
+    q.where("rand", "<", r2).orderBy("rand", "desc").limit(n).get()
   ]);
   const since = Date.now() - ACTIVE_WITHIN_DAYS * 864e5;
   const blocked = new Set(sender.blocked ?? []);
   let list = [...a.docs, ...b.docs].filter((d) => {
     const c = d.data();
-    return d.id !== p.from && !p.tried.includes(d.id) && !blocked.has(d.id) && !(c.blocked ?? []).includes(p.from) && (c.lastActive?.toMillis() ?? 0) >= since;
+    return d.id !== p.from && !p.tried.includes(d.id) && !blocked.has(d.id) && !(c.blocked ?? []).includes(p.from) && (c.lastActive?.toMillis() ?? 0) >= since && matchesWant(c, want);
   });
   if (!list.length) return null;
-  if (!p.wantCountry) {
+  if (!p.wantCountry && !want.region) {
     const abroad = list.filter((d) => d.data().country !== p.fromCountry);
     if (abroad.length) list = abroad;
+  }
+  if (p.avoid?.length) {
+    const fresh = list.filter((d) => !p.avoid.includes(d.id));
+    if (fresh.length) list = fresh;
   }
   if (isVip(sender) && sender.settings?.priority) {
     list.sort((x, y) => (y.data().lastActive?.toMillis() ?? 0) - (x.data().lastActive?.toMillis() ?? 0));
@@ -506,6 +598,7 @@ async function flyTo(ref, p, c, origin) {
     status: "flying",
     toUid: c.id,
     toName: u.name,
+    toLang: u.lang,
     toCity: publicCity(u),
     toCountry: u.country,
     toCountryName: u.countryName ?? "",
@@ -534,7 +627,7 @@ async function moveOn(ref, p) {
   if (hops >= MAX_HOPS) {
     await ref.update({ status: "expired", hops });
     const s = (await db().doc(`users/${p.from}`).get()).data();
-    if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: ref.id } });
+    if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: ref.id } }, "pigeon");
     return;
   }
   await ref.update({ hops, toUid: import_firestore.FieldValue.delete(), landedAt: import_firestore.FieldValue.delete(), tr: import_firestore.FieldValue.delete() });
@@ -548,6 +641,10 @@ var sendPigeon = onCall(async (req) => {
   const fast = !!req.data?.fast;
   const want = req.data?.toCountry ? String(req.data.toCountry) : null;
   if (want && !/^[A-Z]{2}$/.test(want)) bad("bad_country");
+  const filters = readWant(req.data?.filters, isLang);
+  const weekAgo = import_firestore.Timestamp.fromMillis(Date.now() - 7 * 864e5);
+  const recent = await db().collection("pigeons").where("from", "==", uid).where("createdAt", ">=", weekAgo).orderBy("createdAt", "desc").select("toUid").limit(100).get();
+  const avoid = [...new Set(recent.docs.map((d) => d.data().toUid).filter((x) => !!x))].slice(0, 60);
   const inAir = await db().collection("pigeons").where("from", "==", uid).where("status", "in", ["waiting", "flying"]).count().get();
   if (inAir.data().count >= MAX_FLYING_PER_USER) fail("too_many_in_air");
   const userRef = db().doc(`users/${uid}`);
@@ -560,6 +657,7 @@ var sendPigeon = onCall(async (req) => {
     if (!s.exists) fail("no_profile");
     const u = s.data();
     if (u.banned) fail("banned");
+    checkRestricted(u);
     const vip = isVip(u);
     const freeLeft = u.freeDate === todayUtc() ? u.freeLeft ?? 0 : FREE_PIGEONS_PER_DAY;
     const useFree = !vip && freeLeft > 0;
@@ -586,7 +684,9 @@ var sendPigeon = onCall(async (req) => {
       status: "waiting",
       hops: 0,
       tried: [uid],
-      createdAt: import_firestore.Timestamp.now()
+      createdAt: import_firestore.Timestamp.now(),
+      ...hasWant(filters) ? { want: filters } : {},
+      ...avoid.length ? { avoid } : {}
     };
     tx.set(ref, { ...pigeon, cost: charged });
     sender = u;
@@ -629,22 +729,76 @@ var catchPigeon = onCall(async (req) => {
   });
   const me = await getUser(uid);
   const s = (await db().doc(`users/${p.from}`).get()).data();
-  if (s) await pushTo(p.from, { title: fmt(s.lang, "caught_t", { name: me.name }), body: fmt(s.lang, "caught_b", { city: publicCity(me) || me.countryName }), data: { type: "chat", chatId: id } });
+  if (s) await pushTo(p.from, { title: fmt(s.lang, "caught_t", { name: me.name }), body: fmt(s.lang, "caught_b", { city: publicCity(me) || me.countryName }), data: { type: "chat", chatId: id } }, "accept");
   return { chatId: id };
 });
 var myStats = onCall(async (req) => {
   const uid = requireUid(req);
-  const q = await db().collection("pigeons").where("from", "==", uid).select("status", "toCountry", "km").limit(5e3).get();
-  const countries = /* @__PURE__ */ new Set();
+  const pigeons = db().collection("pigeons");
+  const [sentQ, gotQ, chatsQ, prof] = await Promise.all([
+    pigeons.where("from", "==", uid).select("status", "toCountry", "toCountryName", "toCity", "toLang", "km", "createdAt", "landedAt").limit(5e3).get(),
+    pigeons.where("toUid", "==", uid).select("status", "fromCountry", "fromCountryName", "fromLang", "createdAt", "landedAt").limit(5e3).get(),
+    db().collection("chats").where("members", "array-contains", uid).select("createdAt").limit(1e3).get(),
+    db().doc(`profiles/${uid}`).get()
+  ]);
+  const stamps = /* @__PURE__ */ new Map();
+  const stamp = (c, name, at, dir2) => {
+    if (typeof c !== "string" || !c) return;
+    const old = stamps.get(c);
+    if (!old || at < old.at) stamps.set(c, { c, name: String(name ?? ""), at, dir: dir2 });
+  };
+  const langs = /* @__PURE__ */ new Set();
+  const sentCountries = /* @__PURE__ */ new Set();
+  const monthStart = /* @__PURE__ */ new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0, 0, 0, 0);
+  const month = /* @__PURE__ */ new Set();
   let km = 0;
-  for (const d of q.docs) {
+  const journeys = [];
+  for (const d of sentQ.docs) {
     const p = d.data();
-    if (p.status === "landed" || p.status === "caught") {
-      if (p.toCountry) countries.add(String(p.toCountry));
+    const at = (p.landedAt ?? p.createdAt)?.toMillis?.() ?? 0;
+    const arrived = p.status === "landed" || p.status === "caught";
+    if (arrived) {
+      if (p.toCountry) sentCountries.add(String(p.toCountry));
       km += Number(p.km) || 0;
+      stamp(p.toCountry, p.toCountryName, at, "out");
+      if (p.toLang) langs.add(String(p.toLang));
+      if (at >= monthStart.getTime() && p.toCountry) month.add(String(p.toCountry));
     }
+    journeys.push({ id: d.id, status: p.status, country: p.toCountry ?? "", countryName: p.toCountryName ?? "", city: p.toCity ?? "", km: Math.round(Number(p.km) || 0), at: p.createdAt?.toMillis?.() ?? 0 });
   }
-  return { sent: q.size, countries: countries.size, km: Math.round(km) };
+  let received = 0;
+  for (const d of gotQ.docs) {
+    const p = d.data();
+    if (p.status !== "landed" && p.status !== "caught") continue;
+    received++;
+    const at = (p.landedAt ?? p.createdAt)?.toMillis?.() ?? 0;
+    stamp(p.fromCountry, p.fromCountryName, at, "in");
+    if (p.fromLang) langs.add(String(p.fromLang));
+    if (at >= monthStart.getTime() && p.fromCountry) month.add(String(p.fromCountry));
+  }
+  journeys.sort((a, b) => b.at - a.at);
+  const pr = prof.data() ?? {};
+  const earned = [];
+  if (sentQ.size >= 1) earned.push("first_pigeon");
+  if (stamps.size >= 5) earned.push("countries_5");
+  if (langs.size >= 5) earned.push("langs_5");
+  if (pr.photoUrl && pr.bio) earned.push("profile_full");
+  if (km >= 1e4) earned.push("km_10k");
+  if (chatsQ.size >= 10) earned.push("chats_10");
+  return {
+    sent: sentQ.size,
+    received,
+    countries: sentCountries.size,
+    km: Math.round(km),
+    chats: chatsQ.size,
+    langs: langs.size,
+    stamps: [...stamps.values()].sort((a, b) => a.at - b.at),
+    journeys: journeys.slice(0, 20),
+    achievements: earned,
+    monthCountries: month.size
+  };
 });
 var releasePigeon = onCall(async (req) => {
   const uid = requireUid(req);
@@ -773,10 +927,22 @@ var sendMessage = onCall(async (req) => {
   const [me, them] = await Promise.all([getUser(uid), db().doc(`users/${other}`).get().then((s) => s.data())]);
   if (!them) fail("user_gone");
   if ((them.blocked ?? []).includes(uid) || (me.blocked ?? []).includes(other)) fail("blocked");
+  checkRestricted(me);
+  const replyTo = await readReply(ref, req.data?.replyTo);
   const { src, tr } = text ? await translateAll(text, [me.lang, them.lang], me.lang) : { src: me.lang, tr: {} };
   const now = import_firestore.Timestamp.now();
   const label = media ? mediaLabel(media.kind, String(media.name ?? "")) : "";
-  await ref.collection("messages").add({ from: uid, text, src, tr, at: now, ...media ? { media } : {} });
+  const ttlH = Number(c.ttlH) || 0;
+  await ref.collection("messages").add({
+    from: uid,
+    text,
+    src,
+    tr,
+    at: now,
+    ...media ? { media } : {},
+    ...replyTo ? { replyTo } : {},
+    ...ttlH ? { expireAt: import_firestore.Timestamp.fromMillis(now.toMillis() + ttlH * 36e5) } : {}
+  });
   const lastText = media ? text ? `${label} ${text}` : label : text;
   const lastTr = media && text ? Object.fromEntries(Object.entries(tr).map(([k, v]) => [k, `${label} ${v}`])) : tr;
   await ref.update({
@@ -787,9 +953,52 @@ var sendMessage = onCall(async (req) => {
     [`unread.${uid}`]: 0
   });
   await db().doc(`users/${uid}`).update({ lastActive: now });
-  await pushTo(other, { title: me.name, body: lastTr[them.lang] ?? lastText, data: { type: "chat", chatId: ref.id } });
+  await pushTo(other, { title: me.name, body: lastTr[them.lang] ?? lastText, data: { type: "chat", chatId: ref.id } }, "message");
   return { ok: true, src };
 });
+async function readReply(chatRef, v) {
+  if (typeof v !== "string" || !/^[A-Za-z0-9]{10,40}$/.test(v)) return null;
+  const m = (await chatRef.collection("messages").doc(v).get()).data();
+  if (!m || m.deleted) return null;
+  return { id: v, from: m.from, text: String(m.text ?? "").slice(0, 140), ...m.media ? { media: m.media.kind } : {} };
+}
+var deleteMessage = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { ref } = await memberChat(uid, String(req.data?.chatId ?? ""));
+  const id = String(req.data?.id ?? "");
+  if (!/^[A-Za-z0-9]{10,40}$/.test(id)) bad("bad_message");
+  const mref = ref.collection("messages").doc(id);
+  const m = (await mref.get()).data();
+  if (!m || m.from !== uid || m.pigeon || m.system) fail("not_yours");
+  await mref.update({ deleted: true, text: "", tr: {}, media: import_firestore.FieldValue.delete(), replyTo: import_firestore.FieldValue.delete() });
+  return { ok: true };
+});
+var TTL_HOURS = [0, 24, 168];
+var setChatTtl = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { ref, c } = await memberChat(uid, String(req.data?.chatId ?? ""));
+  if (c.blocked) fail("blocked");
+  const hours = Number(req.data?.hours);
+  if (!TTL_HOURS.includes(hours)) bad("bad_setting");
+  if ((Number(c.ttlH) || 0) === hours) return { ok: true };
+  const now = import_firestore.Timestamp.now();
+  await ref.update({ ttlH: hours, ttlBy: uid, updatedAt: now, ...hours ? { ttlEver: true } : {} });
+  await ref.collection("messages").add({ from: uid, text: "", tr: {}, at: now, system: "ttl", hours });
+  return { ok: true };
+});
+async function purgeExpiredMessages() {
+  const chats = await db().collection("chats").where("ttlEver", "==", true).limit(500).get();
+  let n = 0;
+  for (const c of chats.docs) {
+    const old = await c.ref.collection("messages").where("expireAt", "<=", import_firestore.Timestamp.now()).limit(400).get();
+    if (old.empty) continue;
+    const b = db().batch();
+    old.docs.forEach((d) => b.delete(d.ref));
+    await b.commit();
+    n += old.size;
+  }
+  return n;
+}
 var markDelivered = onCall(async (req) => {
   const uid = requireUid(req);
   const { ref } = await memberChat(uid, String(req.data?.chatId ?? ""));
@@ -823,6 +1032,7 @@ var startCall = onCall(secrets, async (req) => {
   const [me, themSnap] = await Promise.all([getUser(uid), db().doc(`users/${other}`).get()]);
   const them = themSnap.data();
   if (!them || (them.blocked ?? []).includes(uid)) fail("blocked");
+  checkRestricted(me);
   const rule = them.settings?.calls ?? "all";
   if (rule === "none") fail("calls_off");
   if (rule === "ten" && (c.messageCount ?? 0) < CALLS_AFTER_MESSAGES) fail("calls_need_messages");
@@ -962,7 +1172,7 @@ async function landOne(ref) {
     title: fmt(r2.lang, "landed_t"),
     body: fmt(r2.lang, "landed_b", { city: p0.fromCity, country: p0.fromCountryName }),
     data: { type: "pigeon", id: ref.id }
-  });
+  }, "pigeon");
   return true;
 }
 function landSoon(id, arriveAt) {
@@ -999,7 +1209,7 @@ async function pigeonClock() {
       if (p.createdAt.toMillis() < tooOld) {
         await d.ref.update({ status: "expired" });
         const s = (await db().doc(`users/${p.from}`).get()).data();
-        if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: d.id } });
+        if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: d.id } }, "pigeon");
       } else await assign(d.ref, p, p.originLoc ?? p.fromLoc);
     } catch (e) {
       logger.error("retry failed", { id: d.id, e: String(e) });
@@ -1077,12 +1287,529 @@ var reportUser = onCall(async (req) => {
   return { ok: true };
 });
 
+// src/errors.ts
+var KEEP_DAYS = 30;
+var clip = (v, n) => normalize(v).slice(0, n);
+async function recordError(e) {
+  try {
+    await db().collection("errors").add({ ...e, msg: e.msg.slice(0, 500), stack: (e.stack ?? "").slice(0, 3e3), at: import_firestore.Timestamp.now() });
+  } catch (x) {
+    logger.warn("could not record error", String(x));
+  }
+}
+function serverError(where, e) {
+  const err = e instanceof Error ? e : new Error(String(e));
+  return recordError({ source: "server", where, msg: err.message, stack: err.stack });
+}
+var logError = onCall(async (req) => {
+  const uid = requireUid(req);
+  const d = req.data ?? {};
+  const msg = clip(d.msg, 500);
+  if (!msg) return { ok: true };
+  await recordError({
+    source: "app",
+    where: clip(d.where, 80) || "app",
+    msg,
+    stack: String(d.stack ?? "").slice(0, 3e3),
+    uid,
+    ver: clip(d.ver, 20),
+    os: clip(d.os, 40)
+  });
+  return { ok: true };
+});
+async function purgeErrors() {
+  const old = await db().collection("errors").where("at", "<", import_firestore.Timestamp.fromMillis(Date.now() - KEEP_DAYS * 864e5)).limit(400).get();
+  const b = db().batch();
+  old.docs.forEach((d) => b.delete(d.ref));
+  if (!old.empty) await b.commit();
+  return old.size;
+}
+
+// src/facts.ts
+var FACTS = {
+  AF: "Afghanistan is home to the Minaret of Jam, a 65-metre tower built in the 12th century.",
+  AL: "Albanians nod to say no and shake their head to say yes.",
+  DZ: "Algeria is the largest country in Africa by area.",
+  AO: "The Kalandula Falls in Angola are among the largest waterfalls in Africa by volume.",
+  AQ: "Antarctica holds about 70 percent of the world\u2019s fresh water as ice.",
+  AR: "Aconcagua in Argentina is the highest mountain outside Asia.",
+  AM: "Armenia was the first country to adopt Christianity as a state religion, in 301.",
+  AU: "The Great Barrier Reef off Australia can be seen from space.",
+  AT: "Vienna\u2019s Caf\xE9 Sacher gave the world the famous Sachertorte chocolate cake.",
+  AZ: "Azerbaijan is called the Land of Fire for gas vents that have burned for centuries.",
+  BS: "The Bahamas are made up of about 700 islands and more than 2,000 cays.",
+  BD: "The Sundarbans in Bangladesh are the largest mangrove forest in the world.",
+  BY: "Belarus has one of the last parts of the primeval forest that once covered Europe.",
+  BE: "Belgium produces hundreds of millions of kilograms of chocolate every year.",
+  BZ: "Belize has the second-longest barrier reef in the world.",
+  BJ: "The town of Ganvi\xE9 in Benin is built entirely on stilts in a lake.",
+  BT: "Bhutan measures its progress with Gross National Happiness.",
+  BO: "Salar de Uyuni in Bolivia is the largest salt flat on Earth.",
+  BA: "The Old Bridge of Mostar in Bosnia and Herzegovina dates from 1566.",
+  BW: "The Okavango Delta in Botswana is an inland river delta that never reaches the sea.",
+  BR: "Brazil is home to about 60 percent of the Amazon rainforest.",
+  BN: "Kampong Ayer in Brunei is one of the largest water villages in the world.",
+  BG: "Bulgaria produces a large share of the world\u2019s rose oil, used in perfumes.",
+  BF: "Burkina Faso hosts FESPACO, the largest film festival in Africa.",
+  BI: "Burundi is known for its royal drummers, a tradition listed by UNESCO.",
+  KH: "Angkor Wat in Cambodia is the largest religious monument in the world.",
+  CM: 'Cameroon is called "Africa in miniature" for its wide variety of landscapes.',
+  CA: "Canada has the longest coastline of any country.",
+  CF: "The Central African Republic has some of the darkest night skies in Africa.",
+  TD: "Lake Chad gave its name to the country of Chad.",
+  CL: "The Atacama Desert in Chile is one of the driest places on Earth.",
+  CN: "Paper, printing, the compass and gunpowder were all first developed in China.",
+  CO: "Colombia has more species of birds than any other country.",
+  CG: "Odzala-Kokoua in the Republic of the Congo is one of Africa\u2019s oldest national parks.",
+  CD: "The Congo River is the deepest river in the world.",
+  CR: "Costa Rica holds about 5 percent of the world\u2019s plant and animal species.",
+  HR: "The necktie takes its name from Croatian soldiers of the 17th century.",
+  CU: "The bee hummingbird of Cuba is the smallest bird in the world.",
+  CY: "Cyprus is said in legend to be the birthplace of Aphrodite.",
+  CZ: "Prague Castle is one of the largest castle complexes in the world.",
+  CI: "C\xF4te d\u2019Ivoire is the world\u2019s largest producer of cocoa beans.",
+  DK: 'LEGO bricks were invented in Denmark; the name means "play well".',
+  DJ: "Lake Assal in Djibouti is the lowest point in Africa.",
+  DO: "Santo Domingo has the oldest cathedral in the Americas.",
+  EC: "Ecuador is named after the equator, which runs through it.",
+  EG: "The Great Pyramid of Giza was the tallest human-made structure for almost 4,000 years.",
+  SV: "El Salvador is known as the Land of Volcanoes.",
+  GQ: "Equatorial Guinea is the only country in Africa with Spanish as an official language.",
+  ER: "Asmara, the capital of Eritrea, is famous for its modernist architecture.",
+  EE: "Estonia was one of the first countries to offer online voting nationwide.",
+  SZ: "Eswatini celebrates the Umhlanga reed dance every year.",
+  ET: "Ethiopia has its own calendar, about seven years behind the Gregorian one.",
+  FK: "The Falkland Islands are home to five species of penguin.",
+  FJ: "Fiji is made up of more than 330 islands.",
+  FI: "Finland has about three million saunas for five and a half million people.",
+  FR: "France is the most visited country in the world.",
+  TF: "The French Southern Territories are home to large colonies of king penguins.",
+  GA: "About 85 percent of Gabon is covered by rainforest.",
+  GM: "The Gambia is the smallest country on mainland Africa.",
+  GE: "Georgia has one of the oldest traditions of winemaking, about 8,000 years old.",
+  DE: "Germany has more than 1,500 kinds of sausage.",
+  GH: "Lake Volta in Ghana is one of the largest artificial lakes in the world.",
+  GR: "The first Olympic Games were held in ancient Greece in 776 BC.",
+  GL: "Greenland is the largest island in the world that is not a continent.",
+  GT: "Guatemala is home to Tikal, one of the greatest cities of the ancient Maya.",
+  GN: "Many of West Africa\u2019s great rivers, including the Niger, start in Guinea.",
+  GW: "The Bijag\xF3s Islands of Guinea-Bissau are a UNESCO biosphere reserve.",
+  GY: "Kaieteur Falls in Guyana is one of the most powerful single-drop waterfalls.",
+  HT: "The Citadelle Laferri\xE8re in Haiti is the largest fortress in the Americas.",
+  HN: "Cop\xE1n in Honduras is famous for its carved Maya stairway.",
+  HU: "The Rubik\u2019s Cube was invented in Hungary in 1974.",
+  IS: "Iceland gets most of its electricity and heat from renewable sources.",
+  IN: "India has 22 officially recognised languages.",
+  ID: "Indonesia is made up of more than 17,000 islands.",
+  IR: "Persian carpets from Iran have been woven for more than 2,500 years.",
+  IQ: "Writing was first developed in Mesopotamia, in today\u2019s Iraq.",
+  IE: "Halloween has its roots in the ancient Irish festival of Samhain.",
+  IL: "The Dead Sea is the lowest point on land, more than 400 metres below sea level.",
+  IT: "Italy has more UNESCO World Heritage Sites than any other country.",
+  JM: "Jamaica\u2019s Blue Mountain coffee is among the most prized coffees in the world.",
+  JP: "Japan has more than 6,800 islands.",
+  JO: "Petra in Jordan was carved into rose-coloured rock over 2,000 years ago.",
+  KZ: "Kazakhstan is the largest landlocked country in the world.",
+  KE: "Kenya is famous for the yearly great migration in the Maasai Mara.",
+  KW: "The Kuwait Towers are the best-known landmark of Kuwait City.",
+  KG: "Lake Issyk-Kul in Kyrgyzstan never freezes, despite its high altitude.",
+  LA: "The Plain of Jars in Laos is scattered with thousands of ancient stone jars.",
+  LV: "Riga has one of the largest collections of Art Nouveau buildings in the world.",
+  LB: "Byblos in Lebanon is one of the oldest continuously inhabited cities.",
+  LS: "Lesotho is the only country lying entirely above 1,000 metres.",
+  LR: "Liberia\u2019s capital, Monrovia, is named after US president James Monroe.",
+  LY: "Leptis Magna in Libya is one of the best-preserved Roman cities.",
+  LT: "Lithuanian is one of the oldest living Indo-European languages.",
+  LU: "Luxembourg was the first country to make all public transport free.",
+  MG: "About 90 percent of Madagascar\u2019s wildlife lives nowhere else on Earth.",
+  MW: "Lake Malawi has more species of fish than any other lake.",
+  MY: "The Petronas Towers in Kuala Lumpur were the tallest buildings in the world until 2004.",
+  ML: "Timbuktu in Mali was a great centre of learning with thousands of manuscripts.",
+  MR: "The Eye of the Sahara, a huge circular formation, lies in Mauritania.",
+  MX: "Chocolate, chillies and maize were first cultivated in Mexico.",
+  MD: "Moldova has one of the largest wine cellars in the world, with miles of tunnels.",
+  MN: "Mongolia is the most sparsely populated country in the world.",
+  ME: "The Bay of Kotor in Montenegro is often called Europe\u2019s southernmost fjord.",
+  MA: "The University of al-Qarawiyyin in Fez is one of the oldest in the world.",
+  MZ: "Mozambique has more than 2,400 kilometres of Indian Ocean coastline.",
+  MM: "Bagan in Myanmar has more than 2,000 ancient temples and pagodas.",
+  NA: "The Namib is considered the oldest desert in the world.",
+  NP: "Eight of the ten highest mountains in the world are in Nepal.",
+  NL: "About a quarter of the Netherlands lies below sea level.",
+  NC: "New Caledonia has one of the largest lagoons in the world.",
+  NZ: "New Zealand was the first country to give women the vote, in 1893.",
+  NI: "Lake Nicaragua is home to freshwater sharks.",
+  NE: "The A\xEFr Mountains of Niger are home to ancient rock art.",
+  NG: "Nigeria has the largest population in Africa.",
+  KP: "Mount Paektu, on the northern border of Korea, is an active volcano with a crater lake.",
+  MK: "Lake Ohrid in North Macedonia is one of the oldest lakes in Europe.",
+  NO: "Norway\u2019s fjords are among the deepest in the world.",
+  OM: "Frankincense has been harvested in Oman for thousands of years.",
+  PK: "K2 in Pakistan is the second-highest mountain in the world.",
+  PS: "Jericho is among the oldest continuously inhabited cities in the world.",
+  PA: "The Panama Canal links the Atlantic and Pacific oceans.",
+  PG: "More than 800 languages are spoken in Papua New Guinea.",
+  PY: "Most people in Paraguay speak both Spanish and Guaran\xED.",
+  PE: "Machu Picchu in Peru was built by the Inca in the 15th century.",
+  PH: "The Philippines is made up of more than 7,600 islands.",
+  PL: "Marie Curie, twice a Nobel Prize winner, was born in Warsaw.",
+  PT: "Portugal is the world\u2019s largest producer of cork.",
+  PR: "Puerto Rico has one of the brightest bioluminescent bays in the world.",
+  QA: "Qatar is a peninsula that reaches into the Persian Gulf.",
+  RO: "The Palace of the Parliament in Bucharest is one of the heaviest buildings in the world.",
+  RU: "Russia spans 11 time zones.",
+  RW: "Rwanda is known as the land of a thousand hills.",
+  SA: "Saudi Arabia has some of the largest sand deserts in the world, such as the Empty Quarter.",
+  SN: "Lac Rose in Senegal is pink because of salt-loving algae.",
+  RS: "Serbia is one of the world\u2019s largest producers of raspberries.",
+  SL: 'Sierra Leone means "lion mountains" in Portuguese.',
+  SK: "Slovakia has more castles per person than almost any other country.",
+  SI: "More than half of Slovenia is covered by forest.",
+  SB: "The Solomon Islands are made up of nearly 1,000 islands.",
+  SO: "Somalia has the longest coastline on mainland Africa.",
+  ZA: "South Africa has three capital cities.",
+  KR: "The Korean alphabet, Hangul, was created in the 15th century to be easy to learn.",
+  SS: "The Sudd in South Sudan is one of the largest wetlands in the world.",
+  ES: "Spain has the second-largest number of UNESCO World Heritage Sites.",
+  LK: "Sri Lanka is one of the largest exporters of tea in the world.",
+  SD: "Sudan has more pyramids than Egypt.",
+  SR: "Suriname is the most forested country in the world.",
+  SE: "Sweden has more than 260,000 islands.",
+  CH: "Switzerland has four national languages.",
+  SY: "Damascus is one of the oldest continuously inhabited cities in the world.",
+  TW: "Taiwan\u2019s Taroko Gorge has marble cliffs hundreds of metres high.",
+  TJ: "More than 90 percent of Tajikistan is mountainous.",
+  TZ: "Mount Kilimanjaro in Tanzania is the highest mountain in Africa.",
+  TH: "Bangkok\u2019s full ceremonial name is one of the longest place names in the world.",
+  TL: "Timor-Leste became independent in 2002.",
+  TG: "Koutammakou in Togo is known for its tower-shaped mud houses.",
+  TT: "The steelpan, a musical instrument, was invented in Trinidad and Tobago.",
+  TN: "The ruins of ancient Carthage lie near Tunis.",
+  TM: "The Darvaza gas crater in Turkmenistan has been burning since 1971.",
+  TR: "Istanbul is a city on two continents, Europe and Asia.",
+  UG: "Uganda is home to about half of the world\u2019s mountain gorillas.",
+  UA: "The Arsenalna metro station in Kyiv is one of the deepest in the world.",
+  AE: "The Burj Khalifa in Dubai is the tallest building in the world.",
+  GB: "Big Ben is the name of the great bell, not the clock tower.",
+  US: "Yellowstone was the first national park in the world, created in 1872.",
+  UY: "Uruguay won the first football World Cup, in 1930.",
+  UZ: "Samarkand in Uzbekistan was a key city on the Silk Road.",
+  VU: "Vanuatu has more languages per person than any other country.",
+  VE: "Angel Falls in Venezuela is the highest uninterrupted waterfall in the world.",
+  VN: "Son Doong in Vietnam is the largest known cave in the world.",
+  EH: "Much of Western Sahara is part of the Sahara, the largest hot desert.",
+  YE: "Shibam in Yemen is famous for its mud-brick tower houses.",
+  ZM: 'Victoria Falls, on the border of Zambia, is called "the smoke that thunders".',
+  ZW: "Great Zimbabwe is a medieval stone city that gave the country its name."
+};
+var countryFact = onCall(async (req) => {
+  requireUid(req);
+  const c = String(req.data?.country ?? "");
+  const lang = String(req.data?.lang ?? "en");
+  if (!isLang(lang)) bad("bad_lang");
+  const en = FACTS[c];
+  if (!en) return { fact: null };
+  if (lang === "en") return { fact: en };
+  const ref = db().doc(`config/facts_${lang}`);
+  const cached = (await ref.get()).data()?.[c];
+  if (typeof cached === "string") return { fact: cached };
+  const { tr } = await translateAll(en, [lang], "en");
+  const fact = tr[lang];
+  if (fact && fact !== en) await ref.set({ [c]: fact }, { merge: true });
+  return { fact: fact || en };
+});
+
+// src/admin.ts
+var import_auth2 = require("firebase-admin/auth");
+
+// src/backup.ts
+var import_node_fs4 = require("node:fs");
+var import_node_os = require("node:os");
+var import_node_path4 = require("node:path");
+var import_node_zlib = require("node:zlib");
+var import_firestore3 = require("firebase-admin/firestore");
+var COLLECTIONS = ["users", "profiles", "pigeons", "chats", "reports", "calls", "config", "admins", "adminLog"];
+var KEEP = 7;
+var MAX_DOCS = 25e3;
+var backupDir = () => env("BACKUP_DIR", (0, import_node_path4.join)((0, import_node_os.homedir)(), "zajel-backups"));
+function plain(v) {
+  if (v instanceof import_firestore3.Timestamp) return { _ts: v.toMillis() };
+  if (Array.isArray(v)) return v.map(plain);
+  if (v && typeof v === "object") {
+    if (typeof v.path === "string" && typeof v.id === "string" && v.firestore) return { _ref: v.path };
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]));
+  }
+  return v;
+}
+var fileFor = (d) => (0, import_node_path4.join)(backupDir(), `zajel-${d.toISOString().slice(0, 10)}.json.gz`);
+var backupExists = (d = /* @__PURE__ */ new Date()) => (0, import_node_fs4.existsSync)(fileFor(d));
+async function runBackup() {
+  const dir2 = backupDir();
+  if (!(0, import_node_fs4.existsSync)(dir2)) (0, import_node_fs4.mkdirSync)(dir2, { recursive: true, mode: 448 });
+  const file2 = fileFor(/* @__PURE__ */ new Date());
+  const gz = (0, import_node_zlib.createGzip)();
+  const out = gz.pipe((0, import_node_fs4.createWriteStream)(file2, { mode: 384 }));
+  const write = (s) => new Promise((res) => {
+    if (!gz.write(s)) gz.once("drain", () => res());
+    else res();
+  });
+  let docs = 0, truncated = false;
+  await write(`{"at":${Date.now()},"collections":{`);
+  for (const [ci, name] of COLLECTIONS.entries()) {
+    await write(`${ci ? "," : ""}${JSON.stringify(name)}:[`);
+    const snap = await db().collection(name).limit(Math.max(0, MAX_DOCS - docs)).get();
+    let first = true;
+    for (const d of snap.docs) {
+      const row = { id: d.id, data: plain(d.data()) };
+      docs++;
+      if (name === "chats" && docs < MAX_DOCS) {
+        const m = await d.ref.collection("messages").orderBy("at").limit(Math.min(2e3, MAX_DOCS - docs)).get();
+        docs += m.size;
+        row.messages = m.docs.map((x) => ({ id: x.id, data: plain(x.data()) }));
+      }
+      await write((first ? "" : ",") + JSON.stringify(row));
+      first = false;
+    }
+    if (docs >= MAX_DOCS) truncated = true;
+    await write("]");
+  }
+  await write(`},"docs":${docs},"truncated":${truncated}}`);
+  gz.end();
+  await new Promise((res, rej) => {
+    out.on("finish", () => res());
+    out.on("error", rej);
+  });
+  const files = (0, import_node_fs4.readdirSync)(dir2).filter((f) => /^zajel-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(f)).sort();
+  for (const f of files.slice(0, Math.max(0, files.length - KEEP))) (0, import_node_fs4.rmSync)((0, import_node_path4.join)(dir2, f), { force: true });
+  logger.info("backup written", { file: file2, docs, truncated });
+  return { file: file2, docs, truncated };
+}
+function listBackups() {
+  const dir2 = backupDir();
+  if (!(0, import_node_fs4.existsSync)(dir2)) return [];
+  return (0, import_node_fs4.readdirSync)(dir2).filter((f) => f.endsWith(".json.gz")).sort().reverse().map((f) => {
+    const s = (0, import_node_fs4.statSync)((0, import_node_path4.join)(dir2, f));
+    return { name: f, bytes: s.size, at: s.mtimeMs };
+  });
+}
+
+// src/admin.ts
+var RANK = { reviewer: 1, mod: 2, admin: 3 };
+var ROLES = Object.keys(RANK);
+async function roleOf(uid) {
+  const [user, doc] = await Promise.all([(0, import_auth2.getAuth)().getUser(uid).catch(() => null), db().doc(`admins/${uid}`).get()]);
+  const email = (user?.email ?? "").toLowerCase();
+  const envAdmins = env("ADMIN_EMAILS").toLowerCase().split(/[,\s]+/).filter(Boolean);
+  if (email && user?.emailVerified !== false && envAdmins.includes(email)) return { role: "admin", email };
+  const r2 = doc.data()?.role;
+  return { role: r2 && r2 in RANK ? r2 : null, email };
+}
+async function need(req, min) {
+  const uid = requireUid(req);
+  const { role, email } = await roleOf(uid);
+  if (!role || RANK[role] < RANK[min]) throw new HttpsError("permission-denied", "not_admin");
+  return { uid, role, email };
+}
+async function log(by, action, extra) {
+  await db().collection("adminLog").add({ by: by.uid, email: by.email, action, ...extra, at: import_firestore.Timestamp.now() });
+}
+var ms = (t) => t?.toMillis ? t.toMillis() : null;
+var ago = (h) => import_firestore.Timestamp.fromMillis(Date.now() - h * 36e5);
+var adminMe = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { role, email } = await roleOf(uid);
+  return { role, email };
+});
+var adminStats = onCall(async (req) => {
+  await need(req, "reviewer");
+  const c = (q) => q.count().get().then((s) => s.data().count);
+  const users = db().collection("users"), pigeons = db().collection("pigeons");
+  const [total, day, week, pigeonsDay, pigeonsWeek, caughtWeek, chats, openReports, review, banned, errorsDay] = await Promise.all([
+    c(users),
+    c(users.where("lastActive", ">=", ago(24))),
+    c(users.where("lastActive", ">=", ago(24 * 7))),
+    c(pigeons.where("createdAt", ">=", ago(24))),
+    c(pigeons.where("createdAt", ">=", ago(24 * 7))),
+    c(pigeons.where("caughtAt", ">=", ago(24 * 7))),
+    c(db().collection("chats")),
+    c(db().collection("reports").where("status", "==", "open")),
+    c(users.where("review", "==", true)),
+    c(users.where("banned", "==", true)),
+    c(db().collection("errors").where("at", ">=", ago(24)))
+  ]);
+  return {
+    users: total,
+    active24h: day,
+    active7d: week,
+    pigeons24h: pigeonsDay,
+    pigeons7d: pigeonsWeek,
+    catchRate7d: pigeonsWeek ? Math.round(caughtWeek / pigeonsWeek * 100) : 0,
+    chats,
+    openReports,
+    review,
+    banned,
+    errors24h: errorsDay
+  };
+});
+async function nameOf(uid) {
+  const p = (await db().doc(`profiles/${uid}`).get()).data();
+  return { uid, name: p?.name ?? "?", country: p?.countryName ?? "", photoUrl: p?.photoUrl ?? "" };
+}
+var adminReports = onCall(async (req) => {
+  await need(req, "reviewer");
+  const status = ["open", "actioned", "dismissed", "all"].includes(req.data?.status) ? req.data.status : "open";
+  const q = await db().collection("reports").orderBy("at", "desc").limit(300).get();
+  const rows = q.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r2) => status === "all" || (r2.status ?? "open") === status).slice(0, 100);
+  const week = Date.now() - 7 * 864e5;
+  const counts = {};
+  for (const d of q.docs) {
+    const r2 = d.data();
+    if (ms(r2.at) >= week) counts[r2.target] = (counts[r2.target] ?? 0) + 1;
+  }
+  const ids = [...new Set(rows.flatMap((r2) => [r2.by, r2.target]))];
+  const names = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await nameOf(id)])));
+  const flagged = await db().collection("users").where("review", "==", true).limit(50).get();
+  return {
+    reports: rows.map((r2) => ({
+      id: r2.id,
+      reason: r2.reason,
+      note: r2.note ?? "",
+      chatId: r2.chatId ?? "",
+      status: r2.status ?? "open",
+      at: ms(r2.at),
+      by: names[r2.by],
+      target: names[r2.target],
+      weekCount: counts[r2.target] ?? 0
+    })),
+    review: await Promise.all(flagged.docs.map(async (d) => ({ ...await nameOf(d.id), reason: d.data().reviewReason ?? "", at: ms(d.data().reviewAt) })))
+  };
+});
+var adminUser = onCall(async (req) => {
+  await need(req, "reviewer");
+  const uid = String(req.data?.uid ?? "");
+  const u = (await db().doc(`users/${uid}`).get()).data();
+  if (!u) throw new HttpsError("not-found", "not_found");
+  const reports = await db().collection("reports").where("target", "==", uid).limit(50).get();
+  return {
+    ...await nameOf(uid),
+    lang: u.lang,
+    createdAt: ms(u.createdAt),
+    lastActive: ms(u.lastActive),
+    banned: !!u.banned,
+    review: !!u.review,
+    restrictedUntil: ms(u.restrictedUntil),
+    warnings: (u.warnings ?? []).length,
+    reports: reports.docs.map((d) => ({ id: d.id, reason: d.data().reason, at: ms(d.data().at), status: d.data().status ?? "open" }))
+  };
+});
+var adminChat = onCall(async (req) => {
+  const me = await need(req, "mod");
+  const reportId = String(req.data?.reportId ?? "");
+  const rep = (await db().doc(`reports/${reportId}`).get()).data();
+  if (!rep?.chatId) throw new HttpsError("failed-precondition", "no_chat_in_report");
+  const chat = (await db().doc(`chats/${rep.chatId}`).get()).data();
+  if (!chat) throw new HttpsError("not-found", "chat_gone");
+  const m = await db().collection(`chats/${rep.chatId}/messages`).orderBy("at", "desc").limit(100).get();
+  await log(me, "view_chat", { reportId, chatId: rep.chatId, target: rep.target });
+  return {
+    members: await Promise.all(chat.members.map(nameOf)),
+    messages: m.docs.reverse().map((d) => {
+      const x = d.data();
+      return { id: d.id, from: x.from, text: x.deleted ? "" : x.text ?? "", deleted: !!x.deleted, media: x.media?.kind ?? null, at: ms(x.at), system: x.system ?? null };
+    })
+  };
+});
+var ACTIONS = ["warn", "restrict", "unrestrict", "suspend", "unsuspend", "dismiss", "clear_review"];
+var adminAction = onCall(async (req) => {
+  const me = await need(req, "mod");
+  const action = String(req.data?.action ?? "");
+  if (!ACTIONS.includes(action)) throw new HttpsError("invalid-argument", "bad_action");
+  const uid = String(req.data?.uid ?? "");
+  const reportId = req.data?.reportId ? String(req.data.reportId) : "";
+  const note = normalize(req.data?.note).slice(0, 300);
+  const ref = db().doc(`users/${uid}`);
+  if (action !== "dismiss" && !(await ref.get()).exists) throw new HttpsError("not-found", "not_found");
+  const now = import_firestore.Timestamp.now();
+  let extra = {};
+  switch (action) {
+    case "warn":
+      await ref.update({ warnings: import_firestore.FieldValue.arrayUnion({ at: now, note }), notice: { kind: "warn", note, at: now } });
+      break;
+    case "restrict": {
+      const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 1)));
+      const until = import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5);
+      await ref.update({ restrictedUntil: until, notice: { kind: "restrict", note, at: now, until } });
+      extra = { days };
+      break;
+    }
+    case "unrestrict":
+      await ref.update({ restrictedUntil: import_firestore.FieldValue.delete(), notice: import_firestore.FieldValue.delete() });
+      break;
+    case "suspend":
+      await ref.update({ banned: true, receiving: false, bannedAt: now, banReason: "moderator", review: false });
+      break;
+    case "unsuspend":
+      await ref.update({ banned: false, receiving: true, banReason: import_firestore.FieldValue.delete(), review: false });
+      break;
+    case "clear_review":
+      await ref.update({ review: false });
+      break;
+    case "dismiss":
+      break;
+  }
+  if (reportId) await db().doc(`reports/${reportId}`).update({ status: action === "dismiss" ? "dismissed" : "actioned", handledBy: me.uid, handledAt: now });
+  await log(me, action, { target: uid, reportId, note, ...extra });
+  return { ok: true };
+});
+var adminLog = onCall(async (req) => {
+  await need(req, "mod");
+  const q = await db().collection("adminLog").orderBy("at", "desc").limit(200).get();
+  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })) };
+});
+var adminErrors = onCall(async (req) => {
+  await need(req, "admin");
+  const q = await db().collection("errors").orderBy("at", "desc").limit(200).get();
+  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })), backups: listBackups() };
+});
+var adminSetRole = onCall(async (req) => {
+  const me = await need(req, "admin");
+  const email = String(req.data?.email ?? "").trim().toLowerCase();
+  const role = req.data?.role == null || req.data.role === "" ? null : String(req.data.role);
+  if (role && !ROLES.includes(role)) throw new HttpsError("invalid-argument", "bad_role");
+  const user = await (0, import_auth2.getAuth)().getUserByEmail(email).catch(() => null);
+  if (!user) throw new HttpsError("not-found", "no_such_account");
+  if (user.uid === me.uid) throw new HttpsError("failed-precondition", "not_yourself");
+  if (role) await db().doc(`admins/${user.uid}`).set({ role, email, at: import_firestore.Timestamp.now(), by: me.uid });
+  else await db().doc(`admins/${user.uid}`).delete();
+  await log(me, "set_role", { target: user.uid, email, role });
+  return { ok: true };
+});
+var adminRoles = onCall(async (req) => {
+  await need(req, "admin");
+  const q = await db().collection("admins").get();
+  return { rows: q.docs.map((d) => ({ uid: d.id, email: d.data().email, role: d.data().role })) };
+});
+var adminAnnounce = onCall(async (req) => {
+  const me = await need(req, "admin");
+  const text = normalize(req.data?.text).slice(0, 200);
+  const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 3)));
+  const ref = db().doc("config/announcement");
+  if (!text) await ref.set({ active: false, at: import_firestore.Timestamp.now() });
+  else {
+    const { src, tr } = await translateAll(text, [...LANGS]);
+    await ref.set({ active: true, text, src, tr, at: import_firestore.Timestamp.now(), until: import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5) });
+  }
+  await log(me, "announce", { text, days });
+  return { ok: true };
+});
+
 // src/index.ts
 var handlers = {
   initUser,
   updateProfile,
   registerToken,
   deleteAccount,
+  ackNotice,
   sendPigeon,
   catchPigeon,
   releasePigeon,
@@ -1091,18 +1818,33 @@ var handlers = {
   sendMessage,
   markRead,
   markDelivered,
+  deleteMessage,
+  setChatTtl,
   startCall,
   answerCall,
   endCall,
   verifyPurchase,
   blockUser,
   unblockUser,
-  reportUser
+  reportUser,
+  logError,
+  countryFact,
+  adminMe,
+  adminStats,
+  adminReports,
+  adminUser,
+  adminChat,
+  adminAction,
+  adminLog,
+  adminErrors,
+  adminSetRole,
+  adminRoles,
+  adminAnnounce
 };
 
 // src/limits.ts
-var import_node_fs4 = require("node:fs");
-var import_node_path4 = require("node:path");
+var import_node_fs5 = require("node:fs");
+var import_node_path5 = require("node:path");
 var CALL_LIMITS = {
   default: [120, 60],
   sendMessage: [40, 60],
@@ -1113,7 +1855,12 @@ var CALL_LIMITS = {
   initUser: [20, 3600],
   deleteAccount: [5, 3600],
   media: [30, 600],
-  avatar: [10, 3600]
+  avatar: [10, 3600],
+  logError: [30, 3600],
+  deleteMessage: [60, 600],
+  setChatTtl: [20, 3600],
+  countryFact: [60, 3600],
+  adminChat: [60, 3600]
 };
 var MEDIA_BYTES_PER_DAY = 300 * 1024 * 1024;
 var Limiter = class {
@@ -1153,25 +1900,25 @@ var Limiter = class {
 };
 function guardMediaRoot(root2) {
   try {
-    (0, import_node_fs4.mkdirSync)(root2, { recursive: true });
+    (0, import_node_fs5.mkdirSync)(root2, { recursive: true });
     const rules = "Options -Indexes -ExecCGI\nRemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .shtml\nRemoveType .php .phtml .phar\n";
-    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(root2, ".htaccess"), rules);
-    const av = (0, import_node_path4.join)(root2, "avatars");
-    (0, import_node_fs4.mkdirSync)(av, { recursive: true });
-    if (!(0, import_node_fs4.existsSync)((0, import_node_path4.join)(av, ".htaccess"))) (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(av, ".htaccess"), rules);
+    (0, import_node_fs5.writeFileSync)((0, import_node_path5.join)(root2, ".htaccess"), rules);
+    const av = (0, import_node_path5.join)(root2, "avatars");
+    (0, import_node_fs5.mkdirSync)(av, { recursive: true });
+    if (!(0, import_node_fs5.existsSync)((0, import_node_path5.join)(av, ".htaccess"))) (0, import_node_fs5.writeFileSync)((0, import_node_path5.join)(av, ".htaccess"), rules);
   } catch {
   }
 }
 
 // src/publishRules.ts
 var import_node_crypto3 = require("node:crypto");
-var import_node_fs5 = require("node:fs");
-var import_node_path5 = require("node:path");
+var import_node_fs6 = require("node:fs");
+var import_node_path6 = require("node:path");
 var import_app = require("firebase-admin/app");
-var root = (0, import_node_path5.join)(__dirname, "..");
+var root = (0, import_node_path6.join)(__dirname, "..");
 function projectId() {
   const f = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "";
-  return JSON.parse((0, import_node_fs5.readFileSync)(f, "utf8")).project_id;
+  return JSON.parse((0, import_node_fs6.readFileSync)(f, "utf8")).project_id;
 }
 async function googleApi(url2, method, body) {
   const { access_token } = await (0, import_app.applicationDefault)().getAccessToken();
@@ -1185,7 +1932,7 @@ async function googleApi(url2, method, body) {
 }
 async function publishRules() {
   const project = projectId();
-  const content = (0, import_node_fs5.readFileSync)((0, import_node_path5.join)(root, "firestore.rules"), "utf8");
+  const content = (0, import_node_fs6.readFileSync)((0, import_node_path6.join)(root, "firestore.rules"), "utf8");
   const rs = await googleApi(`https://firebaserules.googleapis.com/v1/projects/${project}/rulesets`, "POST", {
     source: { files: [{ name: "firestore.rules", content }] }
   });
@@ -1198,14 +1945,14 @@ async function publishRules() {
   return "published";
 }
 async function publishRulesIfChanged() {
-  const file2 = (0, import_node_path5.join)(root, "firestore.rules");
-  if (!(0, import_node_fs5.existsSync)(file2) || !process.env.GOOGLE_APPLICATION_CREDENTIALS) return "skipped";
-  const hash = (0, import_node_crypto3.createHash)("sha256").update((0, import_node_fs5.readFileSync)(file2)).digest("hex");
-  const mark = (0, import_node_path5.join)(root, "tmp", "rules.sha256");
-  if ((0, import_node_fs5.existsSync)(mark) && (0, import_node_fs5.readFileSync)(mark, "utf8").trim() === hash) return "unchanged";
+  const file2 = (0, import_node_path6.join)(root, "firestore.rules");
+  if (!(0, import_node_fs6.existsSync)(file2) || !process.env.GOOGLE_APPLICATION_CREDENTIALS) return "skipped";
+  const hash = (0, import_node_crypto3.createHash)("sha256").update((0, import_node_fs6.readFileSync)(file2)).digest("hex");
+  const mark = (0, import_node_path6.join)(root, "tmp", "rules.sha256");
+  if ((0, import_node_fs6.existsSync)(mark) && (0, import_node_fs6.readFileSync)(mark, "utf8").trim() === hash) return "unchanged";
   const res = await publishRules();
   try {
-    (0, import_node_fs5.writeFileSync)(mark, hash);
+    (0, import_node_fs6.writeFileSync)(mark, hash);
   } catch {
   }
   return res;
@@ -1227,15 +1974,16 @@ r.use((req, res, next) => {
 async function uidFrom(req) {
   const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? "");
   if (!m) return void 0;
-  const t = await (0, import_auth2.getAuth)().verifyIdToken(m[1]);
+  const t = await (0, import_auth3.getAuth)().verifyIdToken(m[1]);
   return t.uid;
 }
 function sendError(res, e) {
   if (e instanceof HttpsError) {
-    const status = e.code === "unauthenticated" ? 401 : e.code === "not-found" ? 404 : e.code === "resource-exhausted" ? 429 : 400;
+    const status = e.code === "unauthenticated" ? 401 : e.code === "not-found" ? 404 : e.code === "resource-exhausted" ? 429 : e.code === "permission-denied" ? 403 : 400;
     res.status(status).json({ error: { code: e.code, message: e.message } });
   } else {
     logger.error("unhandled", e);
+    void serverError("http", e);
     res.status(500).json({ error: { code: "internal", message: "internal" } });
   }
 }
@@ -1275,13 +2023,13 @@ r.post("/avatar", import_express.default.raw({ type: Object.keys(IMAGE_TYPES), l
     const ext = IMAGE_TYPES[String(req.headers["content-type"]).split(";")[0]];
     const body = req.body;
     if (!ext || !Buffer.isBuffer(body) || body.length < 100 || !looksLikeImage(body)) throw new HttpsError("invalid-argument", "bad_photo");
-    const dir2 = (0, import_node_path6.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
-    (0, import_node_fs6.mkdirSync)(dir2, { recursive: true });
-    for (const f of (0, import_node_fs6.readdirSync)(dir2)) (0, import_node_fs6.rmSync)((0, import_node_path6.join)(dir2, f), { force: true });
+    const dir2 = (0, import_node_path7.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
+    (0, import_node_fs7.mkdirSync)(dir2, { recursive: true });
+    for (const f of (0, import_node_fs7.readdirSync)(dir2)) (0, import_node_fs7.rmSync)((0, import_node_path7.join)(dir2, f), { force: true });
     const name = `${Date.now()}.${ext}`;
-    (0, import_node_fs6.writeFileSync)((0, import_node_path6.join)(dir2, name), body);
+    (0, import_node_fs7.writeFileSync)((0, import_node_path7.join)(dir2, name), body);
     const url2 = `${env("MEDIA_URL")}/avatars/${uid}/${name}`;
-    await (0, import_firestore3.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url2 }, { merge: true });
+    await (0, import_firestore4.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url2 }, { merge: true });
     res.json({ result: { url: url2 } });
   } catch (e) {
     sendError(res, e);
@@ -1321,10 +2069,19 @@ r.get("/cron", async (req, res) => {
   running = true;
   try {
     await pigeonClock();
-    if ((/* @__PURE__ */ new Date()).getUTCMinutes() === 0) await vipExpiry();
+    const now = /* @__PURE__ */ new Date();
+    if (now.getUTCMinutes() === 0) {
+      await vipExpiry();
+      await purgeExpiredMessages();
+    }
+    if (now.getUTCHours() >= 2 && !backupExists(now)) {
+      await runBackup().catch((e) => serverError("backup", e));
+      await purgeErrors().catch((e) => serverError("purgeErrors", e));
+    }
     res.json({ ok: true });
   } catch (e) {
     logger.error("cron failed", e);
+    void serverError("cron", e);
     res.status(500).json({ ok: false });
   } finally {
     running = false;

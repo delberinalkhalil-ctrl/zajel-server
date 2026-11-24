@@ -33,6 +33,11 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.to == me() || resource.data.from == me() || me() in resource.data.members);
       allow write: if false;
     }
+    // Banner text set from the admin page.
+    match /config/announcement {
+      allow read: if signedIn();
+      allow write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

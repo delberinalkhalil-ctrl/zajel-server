@@ -27,7 +27,7 @@ async function landOne(ref: DocumentReference) {
   await pushTo(p0.toUid!, {
     title: fmt(r.lang, 'landed_t'), body: fmt(r.lang, 'landed_b', { city: p0.fromCity, country: p0.fromCountryName }),
     data: { type: 'pigeon', id: ref.id },
-  });
+  }, 'pigeon');
   return true;
 }
 
@@ -66,7 +66,7 @@ export async function pigeonClock() {
       if (p.createdAt.toMillis() < tooOld) {
         await d.ref.update({ status: 'expired' });
         const s = (await db().doc(`users/${p.from}`).get()).data() as UserDoc | undefined;
-        if (s) await pushTo(p.from, { title: fmt(s.lang, 'expired_t'), body: fmt(s.lang, 'expired_b'), data: { type: 'pigeon', id: d.id } });
+        if (s) await pushTo(p.from, { title: fmt(s.lang, 'expired_t'), body: fmt(s.lang, 'expired_b'), data: { type: 'pigeon', id: d.id } }, 'pigeon');
       } else await assign(d.ref, p, p.originLoc ?? p.fromLoc);
     } catch (e) { logger.error('retry failed', { id: d.id, e: String(e) }); }
   }
