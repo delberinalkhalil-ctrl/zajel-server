@@ -132,7 +132,23 @@ class _CallScreenState extends State<CallScreen> {
     }
   }
 
+  /// Shows what went wrong (with Agora's code, so it can be reported) and ends the call.
+  void _fail(Object code) {
+    if (_ended || !mounted) return;
+    showInfo(context, context.t('call_error', {'code': '$code'}));
+    _hangUp();
+  }
+
   Future<void> _start() async {
+    try {
+      await _join();
+    } catch (err) {
+      debugPrint('call start failed: $err');
+      _fail(err is AgoraRtcException ? err.code : 'start');
+    }
+  }
+
+  Future<void> _join() async {
     final perms = [Permission.microphone, if (widget.video) Permission.camera];
     final res = await perms.request();
     if (res.values.any((s) => !s.isGranted)) {
@@ -152,13 +168,30 @@ class _CallScreenState extends State<CallScreen> {
         });
       },
       onUserOffline: (RtcConnection c, int remoteUid, UserOfflineReasonType r) => _hangUp(remote: true),
-      onError: (ErrorCodeType err, String msg) => debugPrint('agora $err $msg'),
+      onError: (ErrorCodeType err, String msg) {
+        debugPrint('agora $err $msg');
+        const fatal = {
+          ErrorCodeType.errInvalidAppId, ErrorCodeType.errInvalidChannelName, ErrorCodeType.errInvalidToken,
+          ErrorCodeType.errTokenExpired, ErrorCodeType.errJoinChannelRejected, ErrorCodeType.errNotInitialized,
+        };
+        if (fatal.contains(err)) _fail(err.value());
+      },
+      onConnectionStateChanged: (RtcConnection c, ConnectionStateType state, ConnectionChangedReasonType reason) {
+        debugPrint('agora connection $state $reason');
+        if (state == ConnectionStateType.connectionStateFailed) _fail('c${reason.value()}');
+      },
+      onLocalVideoStateChanged: (VideoSourceType source, LocalVideoStreamState state, LocalVideoStreamReason reason) {
+        if (state == LocalVideoStreamState.localVideoStreamStateFailed) {
+          debugPrint('agora camera $reason');
+          if (mounted) showInfo(context, context.t('call_error', {'code': 'v${reason.value()}'}));
+        }
+      },
     ));
     if (widget.video) {
       await e.enableVideo();
       await e.startPreview();
     }
-    await e.setEnableSpeakerphone(_speaker);
+    await e.setDefaultAudioRouteToSpeakerphone(_speaker);
     await e.joinChannel(
       token: widget.token,
       channelId: widget.channel,

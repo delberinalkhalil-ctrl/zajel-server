@@ -146,6 +146,23 @@ subprojects {
   }
   _ok('Agora screen sharing excluded');
 
+  // 4c. Keep Agora's classes in the shrunk release build (its native code calls them by name).
+  File('android/app/proguard-rules.pro').writeAsStringSync('''-keep class io.agora.** { *; }
+-dontwarn io.agora.**
+-keep class com.google.firebase.** { *; }
+''');
+  if (kts.existsSync()) {
+    var s = kts.readAsStringSync();
+    if (!s.contains('proguard-rules.pro')) {
+      s = s.replaceFirst(
+          'signingConfig = if (keystoreProperties.isEmpty) signingConfigs.getByName("debug") else signingConfigs.getByName("release")',
+          'signingConfig = if (keystoreProperties.isEmpty) signingConfigs.getByName("debug") else signingConfigs.getByName("release")\n'
+              '            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")');
+      kts.writeAsStringSync(s);
+    }
+  }
+  _ok('release keeps Agora classes');
+
   // 5. Launcher icons.
   await _run('dart', ['run', 'flutter_launcher_icons']);
   _ok('Done. Next: flutterfire configure (see README).');

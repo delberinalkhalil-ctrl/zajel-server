@@ -281,4 +281,5 @@ T = {
 "stat_countries": "到达的国家",
 "stat_km": "飞行公里",
 "local_time": "当地时间 {time}",
+"call_error": "通话无法连接。支持代码：{code}",
 }

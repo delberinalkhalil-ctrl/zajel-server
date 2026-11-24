@@ -281,4 +281,5 @@ T = {
 "stat_countries": "welatên gihîştî",
 "stat_km": "km firîn",
 "local_time": "li wir {time}",
+"call_error": "Bang girê nebû. Koda ji bo piştgiriyê: {code}",
 }

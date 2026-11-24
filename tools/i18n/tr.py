@@ -281,4 +281,5 @@ T = {
 "stat_countries": "ulaşılan ülke",
 "stat_km": "uçulan km",
 "local_time": "orada saat {time}",
+"call_error": "Arama bağlanamadı. Destek kodu: {code}",
 }

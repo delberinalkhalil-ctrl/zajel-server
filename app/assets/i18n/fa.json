@@ -280,5 +280,6 @@
  "stat_sent": "کبوتر فرستاده",
  "stat_countries": "کشور رسیده",
  "stat_km": "کیلومتر پرواز",
- "local_time": "ساعت آنجا {time}"
+ "local_time": "ساعت آنجا {time}",
+ "call_error": "تماس برقرار نشد. کد برای پشتیبانی: {code}"
 }

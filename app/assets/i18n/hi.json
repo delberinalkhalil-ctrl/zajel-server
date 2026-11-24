@@ -280,5 +280,6 @@
  "stat_sent": "कबूतर भेजे",
  "stat_countries": "देशों तक पहुँचे",
  "stat_km": "किमी उड़ान",
- "local_time": "वहाँ {time}"
+ "local_time": "वहाँ {time}",
+ "call_error": "कॉल कनेक्ट नहीं हो सकी। सहायता कोड: {code}"
 }

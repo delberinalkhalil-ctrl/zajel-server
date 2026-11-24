@@ -281,4 +281,5 @@ T = {
 "stat_countries": "paesi raggiunti",
 "stat_km": "km volati",
 "local_time": "lì sono le {time}",
+"call_error": "Impossibile collegare la chiamata. Codice per l'assistenza: {code}",
 }

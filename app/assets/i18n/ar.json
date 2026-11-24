@@ -280,5 +280,6 @@
  "stat_sent": "حمامة أرسلتها",
  "stat_countries": "دول وصلتها",
  "stat_km": "كم طيران",
- "local_time": "الساعة هناك {time}"
+ "local_time": "الساعة هناك {time}",
+ "call_error": "تعذّر الاتصال. أرسل هذا الرمز للدعم: {code}"
 }

@@ -281,4 +281,5 @@ T = {
 "stat_countries": "מדינות שהגיעו אליהן",
 "stat_km": "ק״מ טיסה",
 "local_time": "{time} שם",
+"call_error": "השיחה לא התחברה. קוד לתמיכה: {code}",
 }

@@ -281,4 +281,5 @@ T = {
 "stat_countries": "countries reached",
 "stat_km": "km flown",
 "local_time": "{time} there",
+"call_error": "The call couldn't connect. Code for support: {code}",
 }
