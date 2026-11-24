@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Más despacio: estás enviando muy rápido. Inténtalo en un minuto.",
 "err_media_daily_limit": "Has alcanzado el límite de archivos de hoy. Inténtalo mañana.",
 "err_not_member": "Solo puedes denunciar a alguien con quien chateas.",
+"new_letter": "Nueva carta",
+"passport": "Pasaporte Zajel",
+"stat_sent": "palomas enviadas",
+"stat_countries": "países alcanzados",
+"stat_km": "km volados",
+"local_time": "{time} allí",
 }

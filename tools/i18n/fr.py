@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Doucement — vous envoyez très vite. Réessayez dans une minute.",
 "err_media_daily_limit": "Vous avez atteint la limite de fichiers pour aujourd'hui. Réessayez demain.",
 "err_not_member": "Vous ne pouvez signaler qu'une personne avec qui vous discutez.",
+"new_letter": "Nouvelle lettre",
+"passport": "Passeport Zajel",
+"stat_sent": "pigeons envoyés",
+"stat_countries": "pays atteints",
+"stat_km": "km parcourus",
+"local_time": "{time} là-bas",
 }

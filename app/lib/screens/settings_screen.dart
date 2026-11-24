@@ -168,36 +168,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _name.text = p.name == '…' ? me.name : p.name;
           _bio.text = p.bio;
         }
-        return ListView(padding: const EdgeInsets.all(16), children: [
-          Row(children: [
-            GestureDetector(
-              onTap: _uploading ? null : _pickPhoto,
-              child: Stack(alignment: Alignment.bottomCenter, children: [
-                Avatar(name: me.name, url: p?.photoUrl ?? '', size: 92, seed: Api.uid),
-                Container(
-                  width: 92,
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  decoration: const BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.vertical(bottom: Radius.circular(46))),
-                  child: _uploading
-                      ? const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
-                      : Text(context.t('change'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12)),
-                ),
-              ]),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(child: Text(me.name, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800), overflow: TextOverflow.ellipsis)),
-                  if (vip) const Padding(padding: EdgeInsetsDirectional.only(start: 8), child: VipBadge()),
+        return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 16), children: [
+          LetterCard(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: EdgeInsets.zero,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(context.t('passport'), style: const TextStyle(fontSize: 11, letterSpacing: .5, color: kInkSoft, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                        GestureDetector(
+                          onTap: _uploading ? null : _pickPhoto,
+                          child: Stack(alignment: Alignment.bottomCenter, children: [
+                            Avatar(name: me.name, url: p?.photoUrl ?? '', size: 92, seed: Api.uid),
+                            Container(
+                              width: 92,
+                              padding: const EdgeInsets.symmetric(vertical: 3),
+                              decoration: const BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.vertical(bottom: Radius.circular(46))),
+                              child: _uploading
+                                  ? const Center(child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)))
+                                  : Text(context.t('change'), textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12)),
+                            ),
+                          ]),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Flexible(child: Text(me.name, style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w800, fontSize: 22, color: kInk), overflow: TextOverflow.ellipsis)),
+                              if (vip) const Padding(padding: EdgeInsetsDirectional.only(start: 8), child: VipBadge()),
+                            ]),
+                            Text(FirebaseAuth.instance.currentUser?.email ?? '', textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 12, color: kInkSoft)),
+                            Text([me.city, me.countryName].where((e) => e.isNotEmpty).join(', '), style: const TextStyle(fontSize: 12, color: kInkSoft)),
+                            if (p != null && p.photoUrl.isNotEmpty)
+                              TextButton(onPressed: () => _update({'photoUrl': ''}), child: Text(context.t('remove_photo'))),
+                          ]),
+                        ),
+                      ]),
                 ]),
-                Text(FirebaseAuth.instance.currentUser?.email ?? '', textDirection: TextDirection.ltr, style: Theme.of(context).textTheme.bodySmall),
-                Text([me.city, me.countryName].where((e) => e.isNotEmpty).join(', '), style: Theme.of(context).textTheme.bodySmall),
-                if (p != null && p.photoUrl.isNotEmpty)
-                  TextButton(onPressed: () => _update({'photoUrl': ''}), child: Text(context.t('remove_photo'))),
-              ]),
-            ),
-          ]),
+              ),
+              const PassportStats(),
+            ]),
+          ),
           const SizedBox(height: 16),
           section(context.t('profile'), [
             Padding(padding: const EdgeInsets.fromLTRB(16, 8, 16, 0), child: TextField(controller: _name, maxLength: 30, decoration: InputDecoration(labelText: context.t('display_name')))),
@@ -345,5 +359,53 @@ class BlockedScreen extends StatelessWidget {
                 ),
             ]),
     );
+  }
+}
+
+/// Pigeons sent, countries reached and kilometres flown, under the passport card.
+class PassportStats extends StatefulWidget {
+  const PassportStats({super.key});
+  @override
+  State<PassportStats> createState() => _PassportStatsState();
+}
+
+class _PassportStatsState extends State<PassportStats> {
+  late final Future<Map<String, dynamic>> _stats = Api.call('myStats');
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+        future: _stats,
+        builder: (context, s) {
+          String n(String k) => s.hasData ? _compact(context, (s.data![k] as num?)?.toInt() ?? 0) : '…';
+          Widget cell(String value, String label) => Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(children: [
+                    Text(value, style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w800, fontSize: 18, color: kInk)),
+                    Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: kInkSoft)),
+                  ]),
+                ),
+              );
+          const line = VerticalDivider(width: 1, color: kParchmentLine);
+          return Container(
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: kParchmentLine))),
+            child: IntrinsicHeight(
+              child: Row(children: [
+                cell(n('sent'), context.t('stat_sent')),
+                line,
+                cell(n('countries'), context.t('stat_countries')),
+                line,
+                cell(n('km'), context.t('stat_km')),
+              ]),
+            ),
+          );
+        },
+      );
+
+  static String _compact(BuildContext c, int v) {
+    final f = MaterialLocalizations.of(c);
+    if (v >= 1000000) return '${(v / 1000000).toStringAsFixed(1)}M';
+    if (v >= 10000) return '${(v / 1000).round()}K';
+    return f.formatDecimal(v);
   }
 }

@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "慢一点——你发送得太快了。请一分钟后再试。",
 "err_media_daily_limit": "你已达到今天的文件上限。请明天再试。",
 "err_not_member": "只能举报正在与你聊天的人。",
+"new_letter": "新信件",
+"passport": "Zajel 护照",
+"stat_sent": "已放飞信鸽",
+"stat_countries": "到达的国家",
+"stat_km": "飞行公里",
+"local_time": "当地时间 {time}",
 }

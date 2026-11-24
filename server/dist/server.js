@@ -361,6 +361,11 @@ var updateProfile = onCall(async (req) => {
     priv.lang = pub.lang = d.lang;
   }
   if (d.receiving !== void 0) priv.receiving = !!d.receiving;
+  if (d.tz !== void 0) {
+    const tz = Number(d.tz);
+    if (!Number.isInteger(tz) || tz < -720 || tz > 840) bad("bad_setting");
+    pub.tz = tz;
+  }
   if (d.settings && typeof d.settings === "object") {
     for (const k of SETTING_KEYS) {
       if (!(k in d.settings)) continue;
@@ -626,6 +631,20 @@ var catchPigeon = onCall(async (req) => {
   const s = (await db().doc(`users/${p.from}`).get()).data();
   if (s) await pushTo(p.from, { title: fmt(s.lang, "caught_t", { name: me.name }), body: fmt(s.lang, "caught_b", { city: publicCity(me) || me.countryName }), data: { type: "chat", chatId: id } });
   return { chatId: id };
+});
+var myStats = onCall(async (req) => {
+  const uid = requireUid(req);
+  const q = await db().collection("pigeons").where("from", "==", uid).select("status", "toCountry", "km").limit(5e3).get();
+  const countries = /* @__PURE__ */ new Set();
+  let km = 0;
+  for (const d of q.docs) {
+    const p = d.data();
+    if (p.status === "landed" || p.status === "caught") {
+      if (p.toCountry) countries.add(String(p.toCountry));
+      km += Number(p.km) || 0;
+    }
+  }
+  return { sent: q.size, countries: countries.size, km: Math.round(km) };
 });
 var releasePigeon = onCall(async (req) => {
   const uid = requireUid(req);
@@ -1068,6 +1087,7 @@ var handlers = {
   catchPigeon,
   releasePigeon,
   landPigeon,
+  myStats,
   sendMessage,
   markRead,
   markDelivered,

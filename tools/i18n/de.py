@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Etwas langsamer – du sendest sehr schnell. Versuch es in einer Minute noch einmal.",
 "err_media_daily_limit": "Du hast das Tageslimit für Dateien erreicht. Versuch es morgen wieder.",
 "err_not_member": "Du kannst nur Personen melden, mit denen du chattest.",
+"new_letter": "Neuer Brief",
+"passport": "Zajel-Pass",
+"stat_sent": "Tauben gesendet",
+"stat_countries": "Länder erreicht",
+"stat_km": "km geflogen",
+"local_time": "dort {time}",
 }

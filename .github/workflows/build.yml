@@ -63,10 +63,14 @@ jobs:
       - run: flutter pub get
       - name: Analyze
         run: flutter analyze --no-fatal-infos
-        continue-on-error: true
-      - name: Tests
-        run: flutter test
-        continue-on-error: true
+      - name: Tests (and preview pictures of the design)
+        run: flutter test --update-goldens
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-preview
+          path: app/test/goldens/
+          if-no-files-found: ignore
 
       - name: Android project (created on the build machine if not committed)
         run: |

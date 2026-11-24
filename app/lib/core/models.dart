@@ -78,6 +78,8 @@ class Profile {
   bool get vip => d['vip'] == true;
   bool get badge => d['badge'] != false;
   String get place => [city, countryName].where((e) => e.isNotEmpty).join(', ');
+  /// Minutes from UTC on this person's phone, when known.
+  int? get tz => (d['tz'] as num?)?.toInt();
 }
 
 class Pigeon {
@@ -88,6 +90,7 @@ class Pigeon {
   String get from => _s(d['from']);
   String get fromName => _s(d['fromName']);
   String get fromCity => _s(d['fromCity']);
+  String get fromCountry => _s(d['fromCountry']);
   String get fromCountryName => _s(d['fromCountryName']);
   LatLon get fromLoc => LatLon.from(d['fromLoc']) ?? const LatLon(0, 0);
   LatLon get originLoc => LatLon.from(d['originLoc']) ?? fromLoc;

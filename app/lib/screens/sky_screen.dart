@@ -166,57 +166,80 @@ class _SkyScreenState extends State<SkyScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Transform.translate(
-                offset: const Offset(0, -18),
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(children: [
-                    const AirmailStripe(),
+                offset: const Offset(0, -22),
+                child: LetterCard(
+                  margin: EdgeInsets.zero,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Row(children: [
+                      Expanded(child: Text(context.t('new_letter'), style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w800, fontSize: 20, color: kInk))),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: kParchmentDark, borderRadius: BorderRadius.circular(99)),
+                          child: Text(
+                            !Cfg.storeEnabled
+                                ? context.t('free_left_free', {'n': me.freeToday, 'max': Cfg.freeModeDailyPigeons})
+                                : me.vip ? context.t('vip_unlimited') : context.t('free_left', {'n': me.freeToday, 'max': Cfg.freePerDay, 'cost': Cfg.costExtra}),
+                            maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 11, color: kInkSoft),
+                          ),
+                        ),
+                      ),
+                    ]),
                     TextField(
                       controller: _text,
                       minLines: 3,
                       maxLines: 6,
                       maxLength: Cfg.maxPigeonLen,
-                      decoration: InputDecoration(hintText: context.t('letter_hint'), filled: false, border: InputBorder.none, contentPadding: const EdgeInsets.all(14)),
+                      style: const TextStyle(color: kInk, fontSize: 16, height: 1.6),
+                      cursorColor: kRed,
+                      decoration: InputDecoration(
+                        hintText: context.t('letter_hint'),
+                        border: const UnderlineInputBorder(borderSide: BorderSide(color: kParchmentLine)),
+                        enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kParchmentLine)),
+                        focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kInk)),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String?>(
+                      value: _dest,
+                      isExpanded: true,
+                      dropdownColor: kParchment,
+                      style: const TextStyle(color: kInk, fontFamily: kBodyFont, fontSize: 15),
+                      decoration: InputDecoration(
+                        labelText: context.t('where_to'),
+                        prefixIcon: const Icon(Icons.public, color: kInk),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kParchmentLine)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kParchmentLine, width: 1.5)),
+                      ),
+                      items: [
+                        DropdownMenuItem<String?>(value: null, child: Text(context.t(Cfg.storeEnabled ? 'dest_random' : 'surprise_dest'))),
+                        for (final c in Countries.sorted(lang))
+                          DropdownMenuItem<String?>(
+                            value: c.code,
+                            child: Text(Cfg.storeEnabled ? '${c.name(lang)} · ${me.vip ? 'VIP' : context.t('n_points', {'n': Cfg.costDest})}' : c.name(lang), overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: (v) => setState(() => _dest = v),
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(value: false, icon: const Icon(Icons.air), label: Text(context.t('speed_normal'))),
+                        ButtonSegment(value: true, icon: const Icon(Icons.bolt), label: Text(Cfg.storeEnabled ? '${context.t('speed_fast')} · ${Cfg.costFast}' : context.t('speed_fast'))),
+                      ],
+                      selected: {_fast},
+                      onSelectionChanged: (s) => setState(() => _fast = s.first),
+                    ),
+                    const SizedBox(height: 16),
+                    LaunchButton(
+                      busy: _busy,
+                      onPressed: _busy || inAir.length >= Cfg.maxInAir ? null : () => _launch(me),
+                      label: Cfg.storeEnabled ? '${context.t('launch')}  ·  ${cost == 0 ? context.t('free') : context.t('n_points', {'n': cost})}' : context.t('launch'),
                     ),
                   ]),
                 ),
-              ),
-              DropdownButtonFormField<String?>(
-                value: _dest,
-                isExpanded: true,
-                decoration: InputDecoration(labelText: context.t('where_to')),
-                items: [
-                  DropdownMenuItem<String?>(value: null, child: Text(context.t(Cfg.storeEnabled ? 'dest_random' : 'surprise_dest'))),
-                  for (final c in Countries.sorted(lang))
-                    DropdownMenuItem<String?>(
-                      value: c.code,
-                      child: Text(Cfg.storeEnabled ? '${c.name(lang)} · ${me.vip ? 'VIP' : context.t('n_points', {'n': Cfg.costDest})}' : c.name(lang), overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (v) => setState(() => _dest = v),
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(value: false, icon: const Icon(Icons.air), label: Text(context.t('speed_normal'))),
-                  ButtonSegment(value: true, icon: const Icon(Icons.bolt), label: Text(Cfg.storeEnabled ? '${context.t('speed_fast')} · ${Cfg.costFast}' : context.t('speed_fast'))),
-                ],
-                selected: {_fast},
-                onSelectionChanged: (s) => setState(() => _fast = s.first),
-              ),
-              const SizedBox(height: 14),
-              FilledButton.icon(
-                onPressed: _busy || inAir.length >= Cfg.maxInAir ? null : () => _launch(me),
-                icon: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
-                label: Text(Cfg.storeEnabled ? '${context.t('launch')}  ·  ${cost == 0 ? context.t('free') : context.t('n_points', {'n': cost})}' : context.t('launch')),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                !Cfg.storeEnabled
-                    ? context.t('free_left_free', {'n': me.freeToday, 'max': Cfg.freeModeDailyPigeons})
-                    : me.vip ? context.t('vip_unlimited') : context.t('free_left', {'n': me.freeToday, 'max': Cfg.freePerDay, 'cost': Cfg.costExtra}),
-                style: Theme.of(context).textTheme.bodySmall,
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               Text(context.t('my_pigeons'), style: Theme.of(context).textTheme.titleLarge),
@@ -232,10 +255,17 @@ class _SkyScreenState extends State<SkyScreen> {
 
   Widget _hud(String s) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: const Color(0xCC0B1630), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white24)),
-        child: Text(s, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        decoration: BoxDecoration(color: kParchment, borderRadius: BorderRadius.circular(99), boxShadow: const [BoxShadow(color: Color(0x88000000), blurRadius: 12)]),
+        child: Text(s, style: const TextStyle(color: kInk, fontSize: 12, fontWeight: FontWeight.w600)),
       );
 }
+
+Color _statusColor(String s) => switch (s) {
+      'flying' => kGoldLight,
+      'landed' || 'caught' => const Color(0xFF7FE0A8),
+      'expired' => const Color(0xFFFF8A94),
+      _ => kMuted,
+    };
 
 class _PigeonTile extends StatelessWidget {
   const _PigeonTile({required this.p, required this.eta});
@@ -249,13 +279,17 @@ class _PigeonTile extends StatelessWidget {
     final status = context.t('status_${p.status}');
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(p.fast ? Icons.bolt : Icons.air, size: 18),
+            Icon(p.fast ? Icons.bolt : Icons.air, size: 18, color: kGold),
             const SizedBox(width: 6),
             Expanded(child: Text(where, style: const TextStyle(fontWeight: FontWeight.w600))),
-            Text(status, style: Theme.of(context).textTheme.labelMedium),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: _statusColor(p.status).withValues(alpha: .18), borderRadius: BorderRadius.circular(99)),
+              child: Text(status, style: TextStyle(fontSize: 12, color: _statusColor(p.status), fontWeight: FontWeight.w600)),
+            ),
           ]),
           const SizedBox(height: 4),
           Text(p.text, maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),

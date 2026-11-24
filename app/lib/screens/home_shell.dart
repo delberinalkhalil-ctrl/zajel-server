@@ -43,6 +43,8 @@ class _HomeShellState extends State<HomeShell> {
     _calls = Api.incomingCall().listen(_onCall);
     _delivered = Api.chats().listen(_markDelivered, onError: (_) {});
     Push.pending.addListener(_onPush);
+    // Lets the people I chat with see my local time.
+    Api.call('updateProfile', {'tz': DateTime.now().timeZoneOffset.inMinutes}).ignore();
   }
 
   @override
@@ -109,7 +111,7 @@ class _HomeShellState extends State<HomeShell> {
         title: Row(children: [
           Image.asset('assets/img/bird.png', width: 44),
           const SizedBox(width: 6),
-          Text(context.t('app_name'), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 24)),
+          Text(context.t('app_name'), style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w800, fontSize: 24, color: kParchment)),
         ]),
         actions: [
           if (Cfg.storeEnabled) ...[PointsChip(points: me.points, vip: me.vip, onTap: () => go(storeTab)), const SizedBox(width: 6)],
@@ -132,16 +134,15 @@ class _HomeShellState extends State<HomeShell> {
           builder: (_, chats) {
             final nIn = inbox.data?.length ?? 0;
             final nCh = (chats.data ?? const <ChatInfo>[]).fold<int>(0, (a, c) => a + c.unread(Api.uid));
-            return NavigationBar(
-              selectedIndex: _tab,
-              onDestinationSelected: go,
-              destinations: [
-                NavigationDestination(icon: const Icon(Icons.flight_takeoff_outlined), selectedIcon: const Icon(Icons.flight_takeoff), label: context.t('tab_send')),
-                NavigationDestination(icon: Badge(isLabelVisible: nIn > 0, label: Text('$nIn'), child: const Icon(Icons.mail_outline)), selectedIcon: const Icon(Icons.mail), label: context.t('tab_inbox')),
-                NavigationDestination(icon: Badge(isLabelVisible: nCh > 0, label: Text('$nCh'), child: const Icon(Icons.chat_bubble_outline)), selectedIcon: const Icon(Icons.chat_bubble), label: context.t('tab_chats')),
-                if (Cfg.storeEnabled)
-                  NavigationDestination(icon: const Icon(Icons.storefront_outlined), selectedIcon: const Icon(Icons.storefront), label: context.t('tab_store')),
-                NavigationDestination(icon: const Icon(Icons.person_outline), selectedIcon: const Icon(Icons.person), label: context.t('tab_me')),
+            return FloatingNav(
+              index: _tab,
+              onTap: go,
+              items: [
+                FloatingNavItem(Icons.send_outlined, Icons.send, context.t('tab_send')),
+                FloatingNavItem(Icons.mail_outline, Icons.mail, context.t('tab_inbox'), badge: nIn),
+                FloatingNavItem(Icons.chat_bubble_outline, Icons.chat_bubble, context.t('tab_chats'), badge: nCh),
+                if (Cfg.storeEnabled) FloatingNavItem(Icons.star_outline, Icons.star, context.t('tab_store')),
+                FloatingNavItem(Icons.person_outline, Icons.person, context.t('tab_me')),
               ],
             );
           },

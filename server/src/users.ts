@@ -68,6 +68,11 @@ export const updateProfile = onCall(async req => {
   }
   if (d.lang !== undefined) { if (!isLang(d.lang)) bad('bad_lang'); priv.lang = pub.lang = d.lang; }
   if (d.receiving !== undefined) priv.receiving = !!d.receiving;
+  if (d.tz !== undefined) {
+    const tz = Number(d.tz);
+    if (!Number.isInteger(tz) || tz < -720 || tz > 840) bad('bad_setting');
+    pub.tz = tz;
+  }
   if (d.settings && typeof d.settings === 'object') {
     for (const k of SETTING_KEYS) {
       if (!(k in d.settings)) continue;

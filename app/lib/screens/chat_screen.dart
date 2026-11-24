@@ -286,8 +286,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(other.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-                      Text([other.place, if (otherLang.isNotEmpty) context.t('speaks', {'lang': otherLang})].where((e) => e.isNotEmpty).join(' · '),
+                      Text(other.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: kTitleFont, fontSize: 17, fontWeight: FontWeight.w700)),
+                      Text([other.place, if (other.tz != null) context.t('local_time', {'time': localTime(context, other.tz!)}), if (otherLang.isNotEmpty) context.t('speaks', {'lang': otherLang})].where((e) => e.isNotEmpty).join(' · '),
                           overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodySmall),
                     ]),
                   ),
@@ -340,6 +340,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                       : Tick.sent;
                           return _Bubble(
                             mine: mine,
+                            letter: m.pigeon,
                             media: m.media,
                             text: main,
                             alt: showAlt ? alt : null,
@@ -370,7 +371,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               const Icon(Icons.fiber_manual_record, color: kRed, size: 14),
                               const SizedBox(width: 6),
                               Expanded(child: Text(context.t('voice_recording', {'time': clock(_recLen)}))),
-                              IconButton.filled(onPressed: () => _stopVoice(send: true), icon: const Icon(Icons.send)),
+                              IconButton.filled(style: IconButton.styleFrom(backgroundColor: kRed), onPressed: () => _stopVoice(send: true), icon: const Icon(Icons.send)),
                             ])
                           : Row(children: [
                               IconButton(tooltip: context.t('attach'), onPressed: _sending ? null : _attach, icon: const Icon(Icons.add_circle_outline)),
@@ -395,8 +396,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 builder: (context, v, _) => _sending
                                     ? const IconButton.filled(onPressed: null, icon: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
                                     : v.text.trim().isEmpty
-                                        ? IconButton.filled(tooltip: context.t('voice_record'), onPressed: _startVoice, icon: const Icon(Icons.mic))
-                                        : IconButton.filled(onPressed: _send, icon: const Icon(Icons.send)),
+                                        ? IconButton.filled(style: IconButton.styleFrom(backgroundColor: kRed), tooltip: context.t('voice_record'), onPressed: _startVoice, icon: const Icon(Icons.mic))
+                                        : IconButton.filled(style: IconButton.styleFrom(backgroundColor: kRed), onPressed: _send, icon: const Icon(Icons.send)),
                               ),
                             ]),
                     ),
@@ -411,8 +412,9 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.mine, this.media, required this.text, required this.alt, required this.meta, this.tick = Tick.none, required this.onToggle, required this.toggleLabel});
+  const _Bubble({required this.mine, this.letter = false, this.media, required this.text, required this.alt, required this.meta, this.tick = Tick.none, required this.onToggle, required this.toggleLabel});
   final bool mine;
+  final bool letter;
   final Tick tick;
   final MsgMedia? media;
   final String text;
@@ -423,26 +425,32 @@ class _Bubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final fg = mine ? cs.onPrimary : cs.onSurface;
+    final fg = letter ? kInk : kParchment;
+    final bg = letter ? kParchment : mine ? kBlue : kPanel2;
     return Align(
       alignment: mine ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .8),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: EdgeInsets.fromLTRB(media == null ? 12 : 6, media == null ? 10 : 6, media == null ? 12 : 6, 4),
+          clipBehavior: Clip.antiAlias,
+          padding: EdgeInsets.fromLTRB(media == null ? 12 : 6, letter ? 0 : media == null ? 10 : 6, media == null ? 12 : 6, 4),
           decoration: BoxDecoration(
-            color: mine ? cs.primary : cs.surfaceContainerHighest,
+            color: bg,
+            border: mine || letter ? null : Border.all(color: const Color(0x1AFFFFFF)),
             borderRadius: BorderRadiusDirectional.only(
               topStart: const Radius.circular(18), topEnd: const Radius.circular(18),
               bottomStart: Radius.circular(mine ? 18 : 4), bottomEnd: Radius.circular(mine ? 4 : 18),
             ),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (letter) ...[
+              const SizedBox(height: 5, width: double.infinity, child: AirmailStripe(height: 5)),
+              const SizedBox(height: 8),
+            ],
             if (media != null) MessageMedia(media: media!, fg: fg),
             if (media != null && text.isNotEmpty) const SizedBox(height: 6),
-            if (text.isNotEmpty) SelectableText(text, style: TextStyle(color: fg, fontSize: 16)),
+            if (text.isNotEmpty) SelectableText(text, style: TextStyle(color: fg, fontSize: 16, height: 1.5)),
             if (alt != null)
               Container(
                 margin: const EdgeInsets.only(top: 6),

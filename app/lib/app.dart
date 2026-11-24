@@ -21,8 +21,9 @@ class ZajelApp extends StatelessWidget {
     return MaterialApp(
       title: 'Zajel',
       debugShowCheckedModeBanner: false,
-      theme: zajelTheme(Brightness.light),
-      darkTheme: zajelTheme(Brightness.dark),
+      theme: zajelTheme(),
+      darkTheme: zajelTheme(),
+      themeMode: ThemeMode.dark,
       locale: app.locale,
       supportedLocales: L10n.supported,
       localizationsDelegates: L10n.delegates,
@@ -86,7 +87,7 @@ class _Splash extends StatelessWidget {
   final String? error;
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: kNavy,
+        backgroundColor: kNight,
         body: Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Image.asset('assets/img/bird.png', width: 150),

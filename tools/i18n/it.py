@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Rallenta un po': stai inviando molto velocemente. Riprova tra un minuto.",
 "err_media_daily_limit": "Hai raggiunto il limite di file di oggi. Riprova domani.",
 "err_not_member": "Puoi segnalare solo chi è in chat con te.",
+"new_letter": "Nuova lettera",
+"passport": "Passaporto Zajel",
+"stat_sent": "piccioni inviati",
+"stat_countries": "paesi raggiunti",
+"stat_km": "km volati",
+"local_time": "lì sono le {time}",
 }

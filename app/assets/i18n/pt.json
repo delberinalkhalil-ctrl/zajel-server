@@ -274,5 +274,11 @@
  "tick_read": "Lida",
  "err_too_fast": "Mais devagar — você está enviando muito rápido. Tente de novo em um minuto.",
  "err_media_daily_limit": "Você atingiu o limite de arquivos de hoje. Tente amanhã.",
- "err_not_member": "Você só pode denunciar alguém com quem está conversando."
+ "err_not_member": "Você só pode denunciar alguém com quem está conversando.",
+ "new_letter": "Nova carta",
+ "passport": "Passaporte Zajel",
+ "stat_sent": "pombos enviados",
+ "stat_countries": "países alcançados",
+ "stat_km": "km voados",
+ "local_time": "{time} lá"
 }

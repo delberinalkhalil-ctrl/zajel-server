@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Biraz yavaşla — çok hızlı gönderiyorsun. Bir dakika sonra tekrar dene.",
 "err_media_daily_limit": "Bugünkü dosya sınırına ulaştın. Yarın tekrar dene.",
 "err_not_member": "Yalnızca sohbet ettiğin birini bildirebilirsin.",
+"new_letter": "Yeni mektup",
+"passport": "Zajel pasaportu",
+"stat_sent": "gönderilen güvercin",
+"stat_countries": "ulaşılan ülke",
+"stat_km": "uçulan km",
+"local_time": "orada saat {time}",
 }

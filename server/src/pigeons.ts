@@ -159,6 +159,22 @@ export const catchPigeon = onCall(async req => {
   return { chatId: id };
 });
 
+/** Numbers for the "Zajel passport": pigeons sent, countries reached and kilometres flown. */
+export const myStats = onCall(async req => {
+  const uid = requireUid(req);
+  const q = await db().collection('pigeons').where('from', '==', uid).select('status', 'toCountry', 'km').limit(5000).get();
+  const countries = new Set<string>();
+  let km = 0;
+  for (const d of q.docs) {
+    const p = d.data();
+    if (p.status === 'landed' || p.status === 'caught') {
+      if (p.toCountry) countries.add(String(p.toCountry));
+      km += Number(p.km) || 0;
+    }
+  }
+  return { sent: q.size, countries: countries.size, km: Math.round(km) };
+});
+
 export const releasePigeon = onCall(async req => {
   const uid = requireUid(req);
   const ref = db().doc(`pigeons/${String(req.data?.id ?? '')}`);

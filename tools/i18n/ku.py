@@ -275,4 +275,10 @@ T = {
 "err_too_fast": "Hinekî hêdî — tu pir zû dişînî. Piştî deqeyekê dîsa biceribîne.",
 "err_media_daily_limit": "Te sînorê pelan ê îro bi dawî kir. Sibê dîsa biceribîne.",
 "err_not_member": "Tu tenê dikarî kesê ku tu pê re diaxivî ragihînî.",
+"new_letter": "Nameya nû",
+"passport": "Pasaporta Zajel",
+"stat_sent": "kevokên şandî",
+"stat_countries": "welatên gihîştî",
+"stat_km": "km firîn",
+"local_time": "li wir {time}",
 }

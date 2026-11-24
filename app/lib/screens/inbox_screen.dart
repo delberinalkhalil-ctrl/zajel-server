@@ -57,10 +57,10 @@ class _InboxScreenState extends State<InboxScreen> {
         return ListView(padding: const EdgeInsets.all(16), children: [
           Text(context.t('inbox_title'), style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 4),
-          Text(context.t('inbox_intro'), style: Theme.of(context).textTheme.bodyMedium),
+          Text(context.t('inbox_intro'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: kMuted, height: 1.6)),
           const SizedBox(height: 12),
           if (!me.receiving)
-            Card(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: ListTile(leading: const Icon(Icons.pause_circle_outline), title: Text(context.t('receiving_off')))),
+            Card(child: ListTile(leading: const Icon(Icons.pause_circle_outline), title: Text(context.t('receiving_off')))),
           if (s.connectionState == ConnectionState.waiting && list.isEmpty) const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator())),
           if (s.hasData && list.isEmpty)
             Padding(
@@ -71,40 +71,41 @@ class _InboxScreenState extends State<InboxScreen> {
                 Text(context.t('inbox_empty'), textAlign: TextAlign.center),
               ]),
             ),
-          for (final p in list)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Avatar(name: p.fromName, seed: p.from),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(p.fromName, style: const TextStyle(fontWeight: FontWeight.w700)),
-                        Text('${[p.fromCity, p.fromCountryName].where((e) => e.isNotEmpty).join(', ')} · ${p.fromLoc.kmTo(me.loc)} ${context.t('km')}',
-                            style: Theme.of(context).textTheme.bodySmall),
-                      ]),
-                    ),
-                  ]),
-                  const SizedBox(height: 10),
-                  Text(app.autoTranslate ? p.textFor(me.lang) : p.text, style: const TextStyle(fontSize: 16)),
-                  if (app.showOriginal || _orig.contains(p.id))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(app.autoTranslate ? p.text : p.textFor(me.lang), style: Theme.of(context).textTheme.bodySmall),
-                    ),
-                  TextButton(
+          for (final (i, p) in list.indexed)
+            LetterCard(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Avatar(name: p.fromName, seed: p.from, size: 46),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(p.fromName, style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w700, fontSize: 16, color: kInk)),
+                      Text('${[p.fromCity, p.fromCountryName].where((e) => e.isNotEmpty).join(', ')} · ${p.fromLoc.kmTo(me.loc)} ${context.t('km')}',
+                          style: const TextStyle(fontSize: 12, color: kInkSoft)),
+                    ]),
+                  ),
+                  if (p.fromCountry.isNotEmpty) Postmark(code: p.fromCountry, color: i.isEven ? kRed : kBlue, angle: i.isEven ? -.2 : .14),
+                ]),
+                const SizedBox(height: 12),
+                Text(app.autoTranslate ? p.textFor(me.lang) : p.text, style: const TextStyle(fontSize: 16, height: 1.7, color: kInk)),
+                if (app.showOriginal || _orig.contains(p.id))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(app.autoTranslate ? p.text : p.textFor(me.lang), style: const TextStyle(fontSize: 13, color: kInkSoft)),
+                  ),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton(
                     onPressed: () => setState(() => _orig.contains(p.id) ? _orig.remove(p.id) : _orig.add(p.id)),
                     child: Text(context.t(_orig.contains(p.id) ? 'hide_original' : 'show_original')),
                   ),
-                  Row(children: [
-                    Expanded(child: OutlinedButton(onPressed: _busy.contains(p.id) ? null : () => _release(p), child: Text(context.t('release')))),
-                    const SizedBox(width: 10),
-                    Expanded(child: FilledButton(onPressed: _busy.contains(p.id) ? null : () => _catch(p), child: Text(context.t('catch_reply')))),
-                  ]),
+                ),
+                Row(children: [
+                  Expanded(flex: 2, child: LaunchButton(busy: _busy.contains(p.id), onPressed: _busy.contains(p.id) ? null : () => _catch(p), label: context.t('catch_reply'), icon: Icons.reply)),
+                  const SizedBox(width: 10),
+                  Expanded(child: OutlinedButton(onPressed: _busy.contains(p.id) ? null : () => _release(p), child: Text(context.t('release'), textAlign: TextAlign.center))),
                 ]),
-              ),
+              ]),
             ),
         ]);
       },
