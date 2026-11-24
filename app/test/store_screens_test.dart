@@ -273,7 +273,7 @@ class _Passport extends StatelessWidget {
               decoration: const BoxDecoration(border: Border(top: BorderSide(color: kParchmentLine))),
               child: IntrinsicHeight(
                 child: Row(children: [
-                  cell('٢٧', context.t('stat_sent')), line, cell('٩', context.t('stat_countries')), line, cell('٤١K', context.t('stat_km')),
+                  cell('٢٧', context.t('stat_sent')), line, cell('٩', context.t('stat_countries')), line, cell('٤١ ألف', context.t('stat_km')),
                 ]),
               ),
             ),
@@ -315,6 +315,11 @@ void main() {
         }
       });
       await tester.pumpAndSettle();
+      // Big pictures (the globe) finish decoding off the fake clock: give them real time, then repaint.
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+        await tester.pump();
+      }
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/store_${e.key}.png'));
     });
   }
