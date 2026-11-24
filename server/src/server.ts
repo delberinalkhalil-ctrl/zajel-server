@@ -23,9 +23,11 @@ import { env, HttpsError, logger } from './runtime';
 import { memberChat } from './chats';
 import { MEDIA_AFTER_MESSAGES, MEDIA_KINDS, MediaKind, mediaExt, saveMedia } from './media';
 import { guardMediaRoot, Limiter } from './limits';
+import { publishRulesIfChanged } from './publishRules';
 
 initializeApp();
 guardMediaRoot(env('MEDIA_DIR', '/tmp/zajel-media'));
+publishRulesIfChanged().then(r => console.log('firestore rules', r)).catch(e => console.error('firestore rules', e));
 const limiter = new Limiter();
 const slowDown = () => new HttpsError('resource-exhausted', 'too_fast');
 

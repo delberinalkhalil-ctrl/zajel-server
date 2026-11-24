@@ -40,7 +40,7 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     Push.start();
     if (Cfg.storeEnabled) context.read<Billing>().start();
-    _calls = Api.incomingCall().listen(_onCall);
+    _listenCalls();
     _delivered = Api.chats().listen(_markDelivered, onError: (_) {});
     Push.pending.addListener(_onPush);
     // Lets the people I chat with see my local time.
@@ -68,10 +68,21 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  /// Listens for calls ringing for me, and listens again if the stream fails (a network drop, for example).
+  void _listenCalls() {
+    _calls?.cancel();
+    _calls = Api.incomingCall().listen(_onCall, onError: (Object e) {
+      debugPrint('incoming calls: $e');
+      Future.delayed(const Duration(seconds: 10), () {
+        if (mounted) _listenCalls();
+      });
+    });
+  }
+
   void _onCall(CallInfo? c) {
     if (c == null || c.id == _ringing || !mounted) return;
     final created = c.createdAt;
-    if (created != null && DateTime.now().difference(created).inSeconds > 45) return;
+    if (created != null && DateTime.now().difference(created).inSeconds > 90) return; // lenient: phone clocks drift
     _ringing = c.id;
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => IncomingCallScreen(call: c)));
   }

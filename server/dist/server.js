@@ -34,10 +34,10 @@ if ((0, import_node_fs.existsSync)(file)) {
 }
 
 // src/server.ts
-var import_node_fs5 = require("node:fs");
-var import_node_path5 = require("node:path");
+var import_node_fs6 = require("node:fs");
+var import_node_path6 = require("node:path");
 var import_express = __toESM(require("express"));
-var import_app = require("firebase-admin/app");
+var import_app2 = require("firebase-admin/app");
 var import_auth2 = require("firebase-admin/auth");
 var import_firestore3 = require("firebase-admin/firestore");
 
@@ -194,10 +194,10 @@ function guard(chatRoot) {
   ].join("\n"));
 }
 function saveMedia(chatId, ext, body) {
-  const root = (0, import_node_path2.join)(dir(), "chat");
-  (0, import_node_fs2.mkdirSync)(root, { recursive: true });
-  guard(root);
-  const folder = (0, import_node_path2.join)(root, chatId);
+  const root2 = (0, import_node_path2.join)(dir(), "chat");
+  (0, import_node_fs2.mkdirSync)(root2, { recursive: true });
+  guard(root2);
+  const folder = (0, import_node_path2.join)(root2, chatId);
   (0, import_node_fs2.mkdirSync)(folder, { recursive: true });
   const file2 = `${(0, import_node_crypto.randomBytes)(12).toString("hex")}.${ext}`;
   (0, import_node_fs2.writeFileSync)((0, import_node_path2.join)(folder, file2), body);
@@ -1151,21 +1151,70 @@ var Limiter = class {
     for (const [k, v] of this.hits) if (!v.some((x) => t - x < 36e5)) this.hits.delete(k);
   }
 };
-function guardMediaRoot(root) {
+function guardMediaRoot(root2) {
   try {
-    (0, import_node_fs4.mkdirSync)(root, { recursive: true });
+    (0, import_node_fs4.mkdirSync)(root2, { recursive: true });
     const rules = "Options -Indexes -ExecCGI\nRemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .shtml\nRemoveType .php .phtml .phar\n";
-    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(root, ".htaccess"), rules);
-    const av = (0, import_node_path4.join)(root, "avatars");
+    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(root2, ".htaccess"), rules);
+    const av = (0, import_node_path4.join)(root2, "avatars");
     (0, import_node_fs4.mkdirSync)(av, { recursive: true });
     if (!(0, import_node_fs4.existsSync)((0, import_node_path4.join)(av, ".htaccess"))) (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(av, ".htaccess"), rules);
   } catch {
   }
 }
 
+// src/publishRules.ts
+var import_node_crypto3 = require("node:crypto");
+var import_node_fs5 = require("node:fs");
+var import_node_path5 = require("node:path");
+var import_app = require("firebase-admin/app");
+var root = (0, import_node_path5.join)(__dirname, "..");
+function projectId() {
+  const f = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "";
+  return JSON.parse((0, import_node_fs5.readFileSync)(f, "utf8")).project_id;
+}
+async function googleApi(url2, method, body) {
+  const { access_token } = await (0, import_app.applicationDefault)().getAccessToken();
+  const r2 = await httpJson(url2, {
+    method,
+    headers: { Authorization: `Bearer ${access_token}`, "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : void 0,
+    timeoutMs: 3e4
+  });
+  return { status: r2.status, text: r2.text };
+}
+async function publishRules() {
+  const project = projectId();
+  const content = (0, import_node_fs5.readFileSync)((0, import_node_path5.join)(root, "firestore.rules"), "utf8");
+  const rs = await googleApi(`https://firebaserules.googleapis.com/v1/projects/${project}/rulesets`, "POST", {
+    source: { files: [{ name: "firestore.rules", content }] }
+  });
+  if (rs.status !== 200) throw new Error("ruleset " + rs.text.slice(0, 300));
+  const name = JSON.parse(rs.text).name;
+  const rel = `projects/${project}/releases/cloud.firestore`;
+  let r2 = await googleApi(`https://firebaserules.googleapis.com/v1/${rel}`, "PATCH", { release: { name: rel, rulesetName: name } });
+  if (r2.status === 404) r2 = await googleApi(`https://firebaserules.googleapis.com/v1/projects/${project}/releases`, "POST", { name: rel, rulesetName: name });
+  if (r2.status !== 200) throw new Error("release " + r2.text.slice(0, 300));
+  return "published";
+}
+async function publishRulesIfChanged() {
+  const file2 = (0, import_node_path5.join)(root, "firestore.rules");
+  if (!(0, import_node_fs5.existsSync)(file2) || !process.env.GOOGLE_APPLICATION_CREDENTIALS) return "skipped";
+  const hash = (0, import_node_crypto3.createHash)("sha256").update((0, import_node_fs5.readFileSync)(file2)).digest("hex");
+  const mark = (0, import_node_path5.join)(root, "tmp", "rules.sha256");
+  if ((0, import_node_fs5.existsSync)(mark) && (0, import_node_fs5.readFileSync)(mark, "utf8").trim() === hash) return "unchanged";
+  const res = await publishRules();
+  try {
+    (0, import_node_fs5.writeFileSync)(mark, hash);
+  } catch {
+  }
+  return res;
+}
+
 // src/server.ts
-(0, import_app.initializeApp)();
+(0, import_app2.initializeApp)();
 guardMediaRoot(env("MEDIA_DIR", "/tmp/zajel-media"));
+publishRulesIfChanged().then((r2) => console.log("firestore rules", r2)).catch((e) => console.error("firestore rules", e));
 var limiter = new Limiter();
 var slowDown = () => new HttpsError("resource-exhausted", "too_fast");
 var app = (0, import_express.default)();
@@ -1226,11 +1275,11 @@ r.post("/avatar", import_express.default.raw({ type: Object.keys(IMAGE_TYPES), l
     const ext = IMAGE_TYPES[String(req.headers["content-type"]).split(";")[0]];
     const body = req.body;
     if (!ext || !Buffer.isBuffer(body) || body.length < 100 || !looksLikeImage(body)) throw new HttpsError("invalid-argument", "bad_photo");
-    const dir2 = (0, import_node_path5.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
-    (0, import_node_fs5.mkdirSync)(dir2, { recursive: true });
-    for (const f of (0, import_node_fs5.readdirSync)(dir2)) (0, import_node_fs5.rmSync)((0, import_node_path5.join)(dir2, f), { force: true });
+    const dir2 = (0, import_node_path6.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
+    (0, import_node_fs6.mkdirSync)(dir2, { recursive: true });
+    for (const f of (0, import_node_fs6.readdirSync)(dir2)) (0, import_node_fs6.rmSync)((0, import_node_path6.join)(dir2, f), { force: true });
     const name = `${Date.now()}.${ext}`;
-    (0, import_node_fs5.writeFileSync)((0, import_node_path5.join)(dir2, name), body);
+    (0, import_node_fs6.writeFileSync)((0, import_node_path6.join)(dir2, name), body);
     const url2 = `${env("MEDIA_URL")}/avatars/${uid}/${name}`;
     await (0, import_firestore3.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url2 }, { merge: true });
     res.json({ result: { url: url2 } });

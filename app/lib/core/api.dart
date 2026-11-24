@@ -116,14 +116,19 @@ class Api {
       .snapshots()
       .map((q) => q.docs.map((d) => Msg(d.id, d.data())).toList());
 
+  /// The newest call ringing for me. Equality filters only, so no composite index is needed,
+  /// and calls older than the ring window are ignored.
   static Stream<CallInfo?> incomingCall() => fs
       .collection('calls')
       .where('to', isEqualTo: uid)
       .where('status', isEqualTo: 'ringing')
-      .orderBy('createdAt', descending: true)
-      .limit(1)
       .snapshots()
-      .map((q) => q.docs.isEmpty ? null : CallInfo(q.docs.first.id, q.docs.first.data()));
+      .map((q) {
+        final fresh = DateTime.now().subtract(const Duration(seconds: 90));
+        final calls = q.docs.map((d) => CallInfo(d.id, d.data())).where((c) => c.createdAt != null && c.createdAt!.isAfter(fresh)).toList()
+          ..sort((a, b) => b.createdAt!.compareTo(a.createdAt!));
+        return calls.isEmpty ? null : calls.first;
+      });
 
   static Stream<CallInfo?> callDoc(String id) =>
       fs.doc('calls/$id').snapshots().map((s) => s.exists ? CallInfo(s.id, s.data()!) : null);

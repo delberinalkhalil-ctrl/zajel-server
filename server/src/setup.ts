@@ -4,33 +4,14 @@
 import './loadenv';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { applicationDefault } from 'firebase-admin/app';
-import { httpJson } from './runtime';
+import { googleApi as api, publishRules } from './publishRules';
 
 const root = join(__dirname, '..');
 const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? '', 'utf8')) as { project_id: string };
 const project = sa.project_id;
 
-async function api(url: string, method: string, body?: unknown) {
-  const { access_token } = await applicationDefault().getAccessToken();
-  const r = await httpJson(url, {
-    method, headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined, timeoutMs: 30000,
-  });
-  return { status: r.status, text: r.text };
-}
-
 async function rules() {
-  const content = readFileSync(join(root, 'firestore.rules'), 'utf8');
-  const rs = await api(`https://firebaserules.googleapis.com/v1/projects/${project}/rulesets`, 'POST', {
-    source: { files: [{ name: 'firestore.rules', content }] },
-  });
-  if (rs.status !== 200) throw new Error('ruleset ' + rs.text);
-  const name = JSON.parse(rs.text).name as string;
-  const rel = `projects/${project}/releases/cloud.firestore`;
-  let r = await api(`https://firebaserules.googleapis.com/v1/${rel}`, 'PATCH', { release: { name: rel, rulesetName: name } });
-  if (r.status === 404) r = await api(`https://firebaserules.googleapis.com/v1/projects/${project}/releases`, 'POST', { name: rel, rulesetName: name });
-  console.log('rules', r.status === 200 ? 'published' : r.text);
+  console.log('rules', await publishRules());
 }
 
 async function indexes() {

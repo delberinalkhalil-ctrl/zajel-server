@@ -12,6 +12,10 @@ if ((0, import_node_fs.existsSync)(file)) {
 }
 
 // src/setup.ts
+var import_node_fs3 = require("node:fs");
+var import_node_path3 = require("node:path");
+
+// src/publishRules.ts
 var import_node_fs2 = require("node:fs");
 var import_node_path2 = require("node:path");
 var import_app = require("firebase-admin/app");
@@ -40,11 +44,13 @@ function httpJson(url, opts = {}) {
   });
 }
 
-// src/setup.ts
+// src/publishRules.ts
 var root = (0, import_node_path2.join)(__dirname, "..");
-var sa = JSON.parse((0, import_node_fs2.readFileSync)(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "", "utf8"));
-var project = sa.project_id;
-async function api(url, method, body) {
+function projectId() {
+  const f = process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "";
+  return JSON.parse((0, import_node_fs2.readFileSync)(f, "utf8")).project_id;
+}
+async function googleApi(url, method, body) {
   const { access_token } = await (0, import_app.applicationDefault)().getAccessToken();
   const r = await httpJson(url, {
     method,
@@ -54,22 +60,32 @@ async function api(url, method, body) {
   });
   return { status: r.status, text: r.text };
 }
-async function rules() {
+async function publishRules() {
+  const project2 = projectId();
   const content = (0, import_node_fs2.readFileSync)((0, import_node_path2.join)(root, "firestore.rules"), "utf8");
-  const rs = await api(`https://firebaserules.googleapis.com/v1/projects/${project}/rulesets`, "POST", {
+  const rs = await googleApi(`https://firebaserules.googleapis.com/v1/projects/${project2}/rulesets`, "POST", {
     source: { files: [{ name: "firestore.rules", content }] }
   });
-  if (rs.status !== 200) throw new Error("ruleset " + rs.text);
+  if (rs.status !== 200) throw new Error("ruleset " + rs.text.slice(0, 300));
   const name = JSON.parse(rs.text).name;
-  const rel = `projects/${project}/releases/cloud.firestore`;
-  let r = await api(`https://firebaserules.googleapis.com/v1/${rel}`, "PATCH", { release: { name: rel, rulesetName: name } });
-  if (r.status === 404) r = await api(`https://firebaserules.googleapis.com/v1/projects/${project}/releases`, "POST", { name: rel, rulesetName: name });
-  console.log("rules", r.status === 200 ? "published" : r.text);
+  const rel = `projects/${project2}/releases/cloud.firestore`;
+  let r = await googleApi(`https://firebaserules.googleapis.com/v1/${rel}`, "PATCH", { release: { name: rel, rulesetName: name } });
+  if (r.status === 404) r = await googleApi(`https://firebaserules.googleapis.com/v1/projects/${project2}/releases`, "POST", { name: rel, rulesetName: name });
+  if (r.status !== 200) throw new Error("release " + r.text.slice(0, 300));
+  return "published";
+}
+
+// src/setup.ts
+var root2 = (0, import_node_path3.join)(__dirname, "..");
+var sa = JSON.parse((0, import_node_fs3.readFileSync)(process.env.GOOGLE_APPLICATION_CREDENTIALS ?? "", "utf8"));
+var project = sa.project_id;
+async function rules() {
+  console.log("rules", await publishRules());
 }
 async function indexes() {
-  const spec = JSON.parse((0, import_node_fs2.readFileSync)((0, import_node_path2.join)(root, "firestore.indexes.json"), "utf8"));
+  const spec = JSON.parse((0, import_node_fs3.readFileSync)((0, import_node_path3.join)(root2, "firestore.indexes.json"), "utf8"));
   for (const ix of spec.indexes) {
-    const r = await api(
+    const r = await googleApi(
       `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/collectionGroups/${ix.collectionGroup}/indexes`,
       "POST",
       { queryScope: ix.queryScope, fields: ix.fields }
