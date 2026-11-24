@@ -33,7 +33,7 @@ export const POINT_PRODUCTS: Record<string, number> = {
 };
 export const VIP_PRODUCTS = ['vip_monthly', 'vip_quarterly', 'vip_yearly'];
 
-export const LANGS = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku'] as const;
+export const LANGS = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku', 'de', 'it', 'uk'] as const;
 export type Lang = (typeof LANGS)[number];
 export const isLang = (x: unknown): x is Lang => typeof x === 'string' && (LANGS as readonly string[]).includes(x);
 

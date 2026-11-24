@@ -9,3 +9,4 @@ app/build/
 app/.dart_tool/
 functions/node_modules/
 functions/lib/
+__pycache__/

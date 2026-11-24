@@ -39,7 +39,7 @@ test('text checks block links and phone numbers only when strict', () => {
 });
 
 test('language codes', () => {
-  assert.equal(LANGS.length, 12);
+  assert.equal(LANGS.length, 15);
   assert.ok(isLang('ku') && !isLang('xx'));
   assert.equal(toGoogleLang('zh'), 'zh-CN');
   assert.equal(fromGoogleLang('zh-TW'), 'zh');

@@ -2,7 +2,7 @@
 import importlib, json, re, sys, pathlib
 here = pathlib.Path(__file__).parent
 sys.path.insert(0, str(here))
-LANGS = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku']
+LANGS = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku', 'de', 'it', 'uk']
 out = here.parent.parent / 'app' / 'assets' / 'i18n'
 out.mkdir(parents=True, exist_ok=True)
 en = importlib.import_module('en').T

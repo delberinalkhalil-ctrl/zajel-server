@@ -26,11 +26,11 @@ class Cfg {
   static const pointBonus = {'points_550': '+10%', 'points_1200': '+20%', 'points_3000': 'best'};
   static const vipProducts = ['vip_monthly', 'vip_quarterly', 'vip_yearly'];
 
-  static const langs = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku'];
+  static const langs = ['ar', 'en', 'fr', 'tr', 'he', 'es', 'pt', 'fa', 'ru', 'zh', 'hi', 'ku', 'de', 'it', 'uk'];
   static const rtl = {'ar', 'he', 'fa'};
   static const langNames = {
     'ar': 'العربية', 'en': 'English', 'fr': 'Français', 'tr': 'Türkçe', 'he': 'עברית', 'es': 'Español',
-    'pt': 'Português', 'fa': 'فارسی', 'ru': 'Русский', 'zh': '中文', 'hi': 'हिन्दी', 'ku': 'Kurdî (Kurmancî)',
+    'pt': 'Português', 'fa': 'فارسی', 'ru': 'Русский', 'zh': '中文', 'hi': 'हिन्दी', 'ku': 'Kurdî (Kurmancî)', 'de': 'Deutsch', 'it': 'Italiano', 'uk': 'Українська',
   };
 
   // Replace with your own pages before publishing (Google Play requires a privacy policy URL).
