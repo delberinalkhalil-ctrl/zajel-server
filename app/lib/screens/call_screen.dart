@@ -209,18 +209,29 @@ class _CallScreenState extends State<CallScreen> {
 
   Future<void> _hangUp({bool remote = false}) async {
     if (_ended) return;
-    _ended = true;
+    // Mark the call ended in the widget state first, so the back gesture and the pop below are allowed.
+    if (mounted) {
+      setState(() => _ended = true);
+    } else {
+      _ended = true;
+    }
     _timer?.cancel();
     _ringTimeout?.cancel();
     if (!remote) Api.call('endCall', {'callId': widget.callId}).ignore();
     final e = _engine;
     _engine = null;
+    // Leave the screen right away; never wait on the call engine to do it.
+    if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
     if (e != null) {
-      await e.leaveChannel();
-      await e.release();
+      try {
+        await e.leaveChannel();
+      } catch (_) {}
+      try {
+        await e.release();
+      } catch (_) {}
     }
-    if (mounted) Navigator.of(context).maybePop();
   }
+
 
   @override
   void dispose() {
@@ -231,7 +242,7 @@ class _CallScreenState extends State<CallScreen> {
       _ended = true;
       Api.call('endCall', {'callId': widget.callId}).ignore();
       final e = _engine;
-      if (e != null) e.leaveChannel().then((_) => e.release());
+      if (e != null) e.leaveChannel().catchError((_) {}).whenComplete(() => e.release().catchError((_) {}));
     }
     super.dispose();
   }
