@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../core/api.dart';
+import '../core/errors.dart';
 import '../core/i18n.dart';
 import '../core/models.dart';
 import '../widgets/common.dart';
@@ -115,6 +116,9 @@ class _CallScreenState extends State<CallScreen> {
   int _seconds = 0;
   Timer? _timer;
   Timer? _ringTimeout;
+  Timer? _dropTimeout;
+  /// The connection dropped and Agora is trying to restore it (shown instead of the clock).
+  bool _reconnecting = false;
   StreamSubscription<CallInfo?>? _sub;
 
   @override
@@ -135,6 +139,7 @@ class _CallScreenState extends State<CallScreen> {
   /// Shows what went wrong (with Agora's code, so it can be reported) and ends the call.
   void _fail(Object code) {
     if (_ended || !mounted) return;
+    ErrorReporter.report('call', 'call failed: $code');
     showInfo(context, context.t('call_error', {'code': '$code'}));
     _hangUp();
   }
@@ -161,13 +166,26 @@ class _CallScreenState extends State<CallScreen> {
     e.registerEventHandler(RtcEngineEventHandler(
       onUserJoined: (RtcConnection c, int remoteUid, int elapsed) {
         _ringTimeout?.cancel();
+        _dropTimeout?.cancel();
         if (!mounted) return;
-        setState(() => _remote = remoteUid);
+        setState(() {
+          _remote = remoteUid;
+          _reconnecting = false;
+        });
         _timer ??= Timer.periodic(const Duration(seconds: 1), (_) {
           if (mounted) setState(() => _seconds++);
         });
       },
-      onUserOffline: (RtcConnection c, int remoteUid, UserOfflineReasonType r) => _hangUp(remote: true),
+      onUserOffline: (RtcConnection c, int remoteUid, UserOfflineReasonType r) {
+        // Hung up: end now. Lost connection: wait a little in case they come back.
+        if (r != UserOfflineReasonType.userOfflineDropped) {
+          _hangUp(remote: true);
+        } else {
+          if (mounted) setState(() => _reconnecting = true);
+          _dropTimeout?.cancel();
+          _dropTimeout = Timer(const Duration(seconds: 20), () => _hangUp(remote: true));
+        }
+      },
       onError: (ErrorCodeType err, String msg) {
         debugPrint('agora $err $msg');
         const fatal = {
@@ -178,7 +196,12 @@ class _CallScreenState extends State<CallScreen> {
       },
       onConnectionStateChanged: (RtcConnection c, ConnectionStateType state, ConnectionChangedReasonType reason) {
         debugPrint('agora connection $state $reason');
-        if (state == ConnectionStateType.connectionStateFailed) _fail('c${reason.value()}');
+        if (state == ConnectionStateType.connectionStateFailed) {
+          _fail('c${reason.value()}');
+        } else {
+          final again = state == ConnectionStateType.connectionStateReconnecting;
+          if (mounted && again != _reconnecting && (again || state == ConnectionStateType.connectionStateConnected)) setState(() => _reconnecting = again);
+        }
       },
       onLocalVideoStateChanged: (VideoSourceType source, LocalVideoStreamState state, LocalVideoStreamReason reason) {
         if (state == LocalVideoStreamState.localVideoStreamStateFailed) {
@@ -217,6 +240,7 @@ class _CallScreenState extends State<CallScreen> {
     }
     _timer?.cancel();
     _ringTimeout?.cancel();
+    _dropTimeout?.cancel();
     if (!remote) Api.call('endCall', {'callId': widget.callId}).ignore();
     final e = _engine;
     _engine = null;
@@ -238,6 +262,7 @@ class _CallScreenState extends State<CallScreen> {
     _sub?.cancel();
     _timer?.cancel();
     _ringTimeout?.cancel();
+    _dropTimeout?.cancel();
     if (!_ended) {
       _ended = true;
       Api.call('endCall', {'callId': widget.callId}).ignore();
@@ -273,7 +298,7 @@ class _CallScreenState extends State<CallScreen> {
                 const SizedBox(height: 16),
                 Text(widget.other.name, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 6),
-                Text(_remote == null ? context.t('calling') : _clock, style: const TextStyle(color: Colors.white70, fontSize: 16)),
+                Text(_reconnecting ? context.t('reconnecting') : _remote == null ? context.t('calling') : _clock, style: const TextStyle(color: Colors.white70, fontSize: 16)),
               ]),
             ),
           if (widget.video && e != null && !_camOff)
@@ -291,7 +316,7 @@ class _CallScreenState extends State<CallScreen> {
             PositionedDirectional(
               top: MediaQuery.paddingOf(context).top + 16,
               start: 16,
-              child: Text('${widget.other.name} · $_clock', style: const TextStyle(color: Colors.white, shadows: [Shadow(blurRadius: 6)])),
+              child: Text('${widget.other.name} · ${_reconnecting ? context.t('reconnecting') : _clock}', style: const TextStyle(color: Colors.white, shadows: [Shadow(blurRadius: 6)])),
             ),
           Positioned(
             left: 0,

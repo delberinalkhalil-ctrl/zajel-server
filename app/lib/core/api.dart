@@ -130,6 +130,15 @@ class Api {
         return calls.isEmpty ? null : calls.first;
       });
 
+  /// Banner set on the admin page: {text, tr, until} or null when there is none.
+  static Stream<Map<String, dynamic>?> announcement() => fs.doc('config/announcement').snapshots().map((s) {
+        final d = s.data();
+        if (d == null || d['active'] != true) return null;
+        final until = d['until'];
+        if (until is Timestamp && until.toDate().isBefore(DateTime.now())) return null;
+        return d;
+      });
+
   static Stream<CallInfo?> callDoc(String id) =>
       fs.doc('calls/$id').snapshots().map((s) => s.exists ? CallInfo(s.id, s.data()!) : null);
 }

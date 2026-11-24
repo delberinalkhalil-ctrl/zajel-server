@@ -9,6 +9,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with: { channel: stable, cache: true }
       - run: flutter pub get
-      - run: flutter test test/ui_preview_test.dart test/store_screens_test.dart --update-goldens
+      - run: flutter analyze --no-fatal-infos && flutter test test/ui_preview_test.dart test/store_screens_test.dart test/v2_preview_test.dart --update-goldens
       - name: Print pictures
         run: for f in test/goldens/*.png; do echo "PNG $(basename $f) $(base64 -w0 $f)"; done

@@ -6,6 +6,7 @@ import '../core/api.dart';
 import '../core/config.dart';
 import '../core/i18n.dart';
 import '../core/models.dart';
+import '../core/occasions.dart';
 import '../core/session.dart';
 import '../widgets/common.dart';
 import '../widgets/globe_view.dart';
@@ -37,6 +38,8 @@ class _SkyScreenState extends State<SkyScreen> {
     return p;
   }
   String? _dest;
+  /// Who should receive it: region, lang, ageMin, ageMax, gender (all optional). Sent as `filters`.
+  Map<String, dynamic> _want = {};
   bool _fast = false;
   bool _busy = false;
   Timer? _tick;
@@ -67,7 +70,10 @@ class _SkyScreenState extends State<SkyScreen> {
     if (Cfg.storeEnabled && me.points < cost) return _lowFunds(cost, me.points);
     setState(() => _busy = true);
     try {
-      final r = await Api.call('sendPigeon', {'text': text, 'fast': _fast, if (_dest != null) 'toCountry': _dest});
+      final r = await Api.call('sendPigeon', {
+        'text': text, 'fast': _fast, if (_dest != null) 'toCountry': _dest,
+        if (_want.isNotEmpty) 'filters': {..._want, if (_dest != null) 'region': null},
+      });
       _text.clear();
       if (!mounted) return;
       FocusScope.of(context).unfocus();
@@ -149,6 +155,7 @@ class _SkyScreenState extends State<SkyScreen> {
                   homeLabel: context.t('you_at', {'city': me.city.isNotEmpty ? me.city : me.countryName}),
                   flights: flights,
                   landed: landed,
+                  effects: me.effects,
                 ),
               ),
               if (inAir.isNotEmpty && inAir.first.status == 'flying')
@@ -165,6 +172,14 @@ class _SkyScreenState extends State<SkyScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              for (final o in Occasions.near(DateTime.now()).take(1))
+                Transform.translate(
+                  offset: const Offset(0, -30),
+                  child: GestureDetector(
+                    onTap: _pickIdea,
+                    child: NoticeBanner(icon: Icons.celebration_outlined, text: '${context.t(o.nameKey)} · ${context.t('occasion_tap')}'),
+                  ),
+                ),
               Transform.translate(
                 offset: const Offset(0, -22),
                 child: LetterCard(
@@ -223,6 +238,27 @@ class _SkyScreenState extends State<SkyScreen> {
                       ],
                       onChanged: (v) => setState(() => _dest = v),
                     ),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                      ActionChip(
+                        avatar: const Icon(Icons.tune, size: 18, color: kInk),
+                        label: Text(_want.isEmpty ? context.t('filters') : context.t('filters_n', {'n': _want.length})),
+                        backgroundColor: _want.isEmpty ? kParchmentDark : kGold.withValues(alpha: .35),
+                        labelStyle: const TextStyle(color: kInk),
+                        side: const BorderSide(color: kParchmentLine),
+                        onPressed: () => _pickFilters(me),
+                      ),
+                      ActionChip(
+                        avatar: const Icon(Icons.lightbulb_outline, size: 18, color: kInk),
+                        label: Text(context.t('ideas')),
+                        backgroundColor: kParchmentDark,
+                        labelStyle: const TextStyle(color: kInk),
+                        side: const BorderSide(color: kParchmentLine),
+                        onPressed: _pickIdea,
+                      ),
+                      for (final f in _filterLabels(context))
+                        Chip(label: Text(f, style: const TextStyle(color: kInk, fontSize: 12)), backgroundColor: kParchment, side: const BorderSide(color: kParchmentLine), visualDensity: VisualDensity.compact),
+                    ]),
                     const SizedBox(height: 12),
                     SegmentedButton<bool>(
                       segments: [
@@ -241,6 +277,7 @@ class _SkyScreenState extends State<SkyScreen> {
                   ]),
                 ),
               ),
+              if (mine.isNotEmpty) JourneyStages(p: mine.first),
               const SizedBox(height: 20),
               Text(context.t('my_pigeons'), style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
@@ -251,6 +288,64 @@ class _SkyScreenState extends State<SkyScreen> {
         ]);
       },
     );
+  }
+
+  List<String> _filterLabels(BuildContext c) {
+    final w = _want;
+    return [
+      if (w['region'] != null && _dest == null) c.t('region_${w['region']}'),
+      if (w['lang'] != null) Cfg.langNames[w['lang']] ?? '${w['lang']}',
+      if (w['ageMin'] != null || w['ageMax'] != null) c.t('age_range', {'a': w['ageMin'] ?? 18, 'b': w['ageMax'] ?? 80}),
+      if (w['gender'] != null) c.t(w['gender'] == 'f' ? 'gender_f' : 'gender_m'),
+    ].where((e) => e.isNotEmpty).toList();
+  }
+
+  Future<void> _pickFilters(Me me) async {
+    final r = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => FilterSheet(initial: _want, me: me, countryChosen: _dest != null),
+    );
+    if (r != null && mounted) setState(() => _want = r);
+  }
+
+  /// Ready letters and the letter for a nearby occasion; tapping one fills the letter.
+  Future<void> _pickIdea() async {
+    final near = Occasions.near(DateTime.now());
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (c) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(c).height * .7),
+          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
+            if (near.isNotEmpty) ...[
+              Text(c.t('occasions'), style: Theme.of(c).textTheme.titleMedium),
+              for (final o in near)
+                ListTile(
+                  leading: const Icon(Icons.celebration_outlined, color: kGold),
+                  title: Text(c.t(o.nameKey)),
+                  subtitle: Text(c.t(o.msgKey), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  onTap: () => Navigator.pop(c, c.t(o.msgKey)),
+                ),
+              const Divider(),
+            ],
+            Text(c.t('ready_letters'), style: Theme.of(c).textTheme.titleMedium),
+            for (final k in Occasions.ready)
+              ListTile(
+                leading: const Icon(Icons.mail_outline, color: kGold),
+                title: Text(c.t(k), maxLines: 3, overflow: TextOverflow.ellipsis),
+                onTap: () => Navigator.pop(c, c.t(k)),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    _text.text = picked;
+    _text.selection = TextSelection.collapsed(offset: picked.length);
   }
 
   Widget _hud(String s) => Container(
@@ -299,6 +394,150 @@ class _PigeonTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text('${p.km} ${context.t('km')} · $eta', style: Theme.of(context).textTheme.bodySmall),
           ],
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// Where the latest letter is: written → in the air → landed → a conversation (or "not accepted").
+class JourneyStages extends StatelessWidget {
+  const JourneyStages({super.key, required this.p});
+  final Pigeon p;
+
+  @override
+  Widget build(BuildContext context) {
+    final expired = p.status == 'expired';
+    final reached = switch (p.status) { 'waiting' => 0, 'flying' => 1, 'landed' => 2, 'caught' => 3, 'expired' => 3, _ => 0 };
+    final steps = [
+      (Icons.edit_outlined, context.t('stage_written')),
+      (Icons.air, context.t('stage_flying')),
+      (Icons.place_outlined, context.t('stage_landed')),
+      expired ? (Icons.undo, context.t('status_expired')) : (Icons.forum_outlined, context.t('stage_caught')),
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(context.t('journey_title'), style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 12),
+          Row(children: [
+            for (var i = 0; i < steps.length; i++) ...[
+              Expanded(
+                child: Column(children: [
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundColor: i <= reached ? (expired && i == 3 ? const Color(0xFFFF8A94) : kGold) : kPanel2,
+                    child: Icon(steps[i].$1, size: 18, color: i <= reached ? kNight : kMuted),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(steps[i].$2, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 11.5, color: i <= reached ? kParchment : kMuted)),
+                ]),
+              ),
+              if (i < steps.length - 1)
+                Expanded(
+                  flex: 0,
+                  child: Container(width: 14, height: 2, margin: const EdgeInsets.only(bottom: 26), color: i < reached ? kGold : kPanel2),
+                ),
+            ],
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+/// Optional matching filters for a letter. Gender can only be chosen by people who share their own.
+class FilterSheet extends StatefulWidget {
+  const FilterSheet({super.key, required this.initial, required this.me, required this.countryChosen});
+  final Map<String, dynamic> initial;
+  final Me me;
+  final bool countryChosen;
+  @override
+  State<FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<FilterSheet> {
+  late String? _region = widget.initial['region'] as String?;
+  late String? _lang = widget.initial['lang'] as String?;
+  late String? _gender = widget.initial['gender'] as String?;
+  late bool _age = widget.initial['ageMin'] != null || widget.initial['ageMax'] != null;
+  late RangeValues _ages = RangeValues(((widget.initial['ageMin'] as num?) ?? 18).toDouble(), ((widget.initial['ageMax'] as num?) ?? 80).toDouble());
+
+  Map<String, dynamic> get _result => {
+        if (_region != null && !widget.countryChosen) 'region': _region,
+        if (_lang != null) 'lang': _lang,
+        if (_age) 'ageMin': _ages.start.round(),
+        if (_age) 'ageMax': _ages.end.round(),
+        if (_gender != null && widget.me.genderMatch) 'gender': _gender,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(context).bottom),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(context.t('filters_title'), style: t.titleLarge),
+          Text(context.t('filters_hint'), style: t.bodySmall?.copyWith(color: kMuted)),
+          const SizedBox(height: 14),
+          Text(context.t('filter_region'), style: t.titleSmall),
+          const SizedBox(height: 6),
+          if (widget.countryChosen)
+            Text(context.t('filter_region_country'), style: t.bodySmall?.copyWith(color: kMuted))
+          else
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              ChoiceChip(label: Text(context.t('any')), selected: _region == null, onSelected: (_) => setState(() => _region = null)),
+              for (final r in kRegions)
+                ChoiceChip(label: Text(context.t('region_$r')), selected: _region == r, onSelected: (_) => setState(() => _region = r)),
+            ]),
+          const SizedBox(height: 16),
+          Text(context.t('filter_lang'), style: t.titleSmall),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String?>(
+            value: _lang,
+            isExpanded: true,
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(context.t('any'))),
+              for (final l in Cfg.langs) DropdownMenuItem<String?>(value: l, child: Text(Cfg.langNames[l] ?? l)),
+            ],
+            onChanged: (v) => setState(() => _lang = v),
+          ),
+          const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.t('filter_age')),
+            subtitle: _age ? Text(context.t('age_range', {'a': _ages.start.round(), 'b': _ages.end.round()})) : null,
+            value: _age,
+            onChanged: (v) => setState(() => _age = v),
+          ),
+          if (_age)
+            RangeSlider(
+              min: 18, max: 80, divisions: 62, values: _ages,
+              labels: RangeLabels('${_ages.start.round()}', '${_ages.end.round()}'),
+              onChanged: (v) => setState(() => _ages = v),
+            ),
+          const SizedBox(height: 8),
+          Text(context.t('filter_gender'), style: t.titleSmall),
+          const SizedBox(height: 6),
+          if (!widget.me.genderMatch)
+            Text(context.t('filter_gender_off'), style: t.bodySmall?.copyWith(color: kMuted))
+          else
+            Wrap(spacing: 6, children: [
+              ChoiceChip(label: Text(context.t('any')), selected: _gender == null, onSelected: (_) => setState(() => _gender = null)),
+              ChoiceChip(label: Text(context.t('gender_f')), selected: _gender == 'f', onSelected: (_) => setState(() => _gender = 'f')),
+              ChoiceChip(label: Text(context.t('gender_m')), selected: _gender == 'm', onSelected: (_) => setState(() => _gender = 'm')),
+            ]),
+          const SizedBox(height: 10),
+          Text(context.t('filters_slower'), style: t.bodySmall?.copyWith(color: kMuted)),
+          const SizedBox(height: 14),
+          Row(children: [
+            TextButton(onPressed: () => Navigator.pop(context, <String, dynamic>{}), child: Text(context.t('clear'))),
+            const Spacer(),
+            FilledButton(onPressed: () => Navigator.pop(context, _result), child: Text(context.t('apply'))),
+          ]),
         ]),
       ),
     );

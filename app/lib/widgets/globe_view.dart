@@ -39,8 +39,10 @@ class GlobeLanding {
 
 /// The WebGL globe (assets/globe/globe.html) rendered in a WebView. Drag rotates the globe.
 class GlobeView extends StatefulWidget {
-  const GlobeView({super.key, required this.home, required this.homeLabel, required this.flights, required this.landed});
+  const GlobeView({super.key, required this.home, required this.homeLabel, required this.flights, required this.landed, this.effects = 'full'});
   final LatLon home;
+  /// full, light or off (see Me.effects).
+  final String effects;
   final String homeLabel;
   final List<GlobeFlight> flights;
   final List<GlobeLanding> landed;
@@ -83,6 +85,7 @@ class _GlobeViewState extends State<GlobeView> {
       'home': {'lat': widget.home.lat, 'lon': widget.home.lon, 'label': widget.homeLabel},
       'flights': widget.flights.map((f) => f.toJson()).toList(),
       'landed': widget.landed.map((l) => l.toJson()).toList(),
+      'effects': widget.effects,
     };
     _c.runJavaScript('window.zajel && zajel.set(${jsonEncode(state)})');
   }

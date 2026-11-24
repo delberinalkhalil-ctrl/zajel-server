@@ -60,6 +60,16 @@ class Me {
   Map<String, dynamic> get settings => (d['settings'] as Map?)?.cast<String, dynamic>() ?? const {};
   bool setting(String k, [bool def = true]) => settings[k] is bool ? settings[k] as bool : def;
   String get calls => settings['calls'] is String ? settings['calls'] as String : 'all';
+  /// Globe animation level: full, light (fewer particles, no clouds) or off (still picture).
+  String get effects => settings['effects'] is String ? settings['effects'] as String : 'full';
+  /// Optional, private: used only to match pigeons when [genderMatch] is on.
+  String get gender => _s(d['gender']);
+  bool get genderMatch => d['genderMatch'] == true;
+  int get birthYear => (d['birthYear'] as num?)?.toInt() ?? 0;
+  DateTime? get restrictedUntil => _ts(d['restrictedUntil']);
+  bool get restricted => restrictedUntil != null && restrictedUntil!.isAfter(DateTime.now());
+  /// A moderator's message: {kind: warn|restrict, note, until?, seen?}.
+  Map<String, dynamic>? get notice => d['notice'] is Map ? Map<String, dynamic>.from(d['notice'] as Map) : null;
 }
 
 /// Public card (profiles/{uid}).
@@ -80,6 +90,7 @@ class Profile {
   String get place => [city, countryName].where((e) => e.isNotEmpty).join(', ');
   /// Minutes from UTC on this person's phone, when known.
   int? get tz => (d['tz'] as num?)?.toInt();
+  bool get showAchievements => d['showAchievements'] != false;
 }
 
 class Pigeon {
@@ -140,6 +151,8 @@ class ChatInfo {
   int get messageCount => (d['messageCount'] as num?)?.toInt() ?? 0;
   bool get blocked => d['blocked'] == true;
   int get routeKm => (((d['route'] as Map?)?['km']) as num?)?.toInt() ?? 0;
+  /// Disappearing messages: 0 (off), 24 or 168 hours.
+  int get ttlH => (d['ttlH'] as num?)?.toInt() ?? 0;
 }
 
 class Msg {
@@ -153,6 +166,13 @@ class Msg {
   Map<String, String> get tr => _sm(d['tr']);
   DateTime? get at => _ts(d['at']);
   bool get pigeon => d['pigeon'] == true;
+  bool get deleted => d['deleted'] == true;
+  /// System line in the chat, e.g. "ttl" when disappearing messages were changed.
+  String get system => _s(d['system']);
+  int get hours => (d['hours'] as num?)?.toInt() ?? 0;
+  DateTime? get expireAt => _ts(d['expireAt']);
+  /// The quoted message when this is a reply: {id, from, text, media?}.
+  Map<String, dynamic>? get replyTo => d['replyTo'] is Map ? Map<String, dynamic>.from(d['replyTo'] as Map) : null;
 
   /// Attachment: null for a plain text message.
   MsgMedia? get media => d['media'] is Map ? MsgMedia(Map<String, dynamic>.from(d['media'] as Map)) : null;

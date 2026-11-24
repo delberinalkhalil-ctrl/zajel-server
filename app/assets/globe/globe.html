@@ -55,6 +55,7 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
   window.zajel = {
     set: function (s) {
       st.home = { c: [s.home.lon, s.home.lat], city: s.home.label, label: s.home.label };
+      st.effects = s.effects || 'full';
       var keep = {};
       st.flights = (s.flights || []).map(function (f) {
         keep[f.id] = 1;
@@ -94,13 +95,20 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
   });
   window.addEventListener('pointerup', function () { drag = null; });
   window.addEventListener('pointercancel', function () { drag = null; });
+  // Effects level from the app settings: full (60 fps), light (about 24 fps, no clouds) or off
+  // (a still picture that only redraws while a pigeon flies or the globe is dragged). Saves battery.
+  var lastDraw = 0;
   function loop() {
     var now = Date.now();
+    var gap = st.effects === 'light' ? 40 : st.effects === 'off' ? (drag || st.flights.length ? 60 : 1000) : 0;
+    if (gap && now - lastDraw < gap) { requestAnimationFrame(loop); return; }
+    lastDraw = now;
     st.flights.forEach(function (f, i) {
       f.p = Math.max(0, Math.min(1, (now - f.t0) / Math.max(1, f.t1 - f.t0)));
       // calm wing beats now and then while the leading pigeon is in the air, and the landing as it arrives
       if (!i && f.p > .02 && f.p < .97 && now > f.cruiseAt) { f.cruiseAt = now + 7000 + Math.random() * 5000; snd('cruise'); }
       if (f.p >= .985 && !played[f.id]) { played[f.id] = 1; snd('landing'); }
+      if (st.effects === 'off') f.cruiseAt = now + 60000;
     });
     st.dragging = !!drag;
     G.frame(now, st);
