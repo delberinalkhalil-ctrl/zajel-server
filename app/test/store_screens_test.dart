@@ -77,7 +77,7 @@ class _Sky extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: kParchmentDark, borderRadius: BorderRadius.circular(99)),
-                    child: Text(context.t('free_left_free', {'n': 4, 'max': 5}), style: const TextStyle(fontSize: 11, color: kInkSoft)),
+                    child: Text(context.t('free_left_free', {'n': 18, 'max': 20}), style: const TextStyle(fontSize: 11, color: kInkSoft)),
                   ),
                 ]),
                 const SizedBox(height: 10),
