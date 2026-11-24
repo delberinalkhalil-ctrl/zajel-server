@@ -34,8 +34,8 @@ if ((0, import_node_fs.existsSync)(file)) {
 }
 
 // src/server.ts
-var import_node_fs3 = require("node:fs");
-var import_node_path3 = require("node:path");
+var import_node_fs4 = require("node:fs");
+var import_node_path4 = require("node:path");
 var import_express = __toESM(require("express"));
 var import_app = require("firebase-admin/app");
 var import_auth2 = require("firebase-admin/auth");
@@ -69,8 +69,8 @@ var VIP_PRODUCTS = ["vip_monthly", "vip_quarterly", "vip_yearly"];
 var LANGS = ["ar", "en", "fr", "tr", "he", "es", "pt", "fa", "ru", "zh", "hi", "ku"];
 var isLang = (x) => typeof x === "string" && LANGS.includes(x);
 
-// src/users.ts
-var import_auth = require("firebase-admin/auth");
+// src/media.ts
+var import_node_crypto = require("node:crypto");
 var import_node_fs2 = require("node:fs");
 var import_node_path2 = require("node:path");
 
@@ -92,9 +92,9 @@ var logger = {
   error: (...a) => console.error((/* @__PURE__ */ new Date()).toISOString(), ...a)
 };
 var env = (name, def = "") => process.env[name] ?? def;
-function httpJson(url, opts = {}) {
+function httpJson(url2, opts = {}) {
   return new Promise((resolve, reject) => {
-    const req = (0, import_node_https.request)(url, { method: opts.method ?? "GET", headers: opts.headers, timeout: opts.timeoutMs ?? 1e4 }, (res) => {
+    const req = (0, import_node_https.request)(url2, { method: opts.method ?? "GET", headers: opts.headers, timeout: opts.timeoutMs ?? 1e4 }, (res) => {
       const chunks2 = [];
       res.on("data", (c) => chunks2.push(c));
       res.on("end", () => {
@@ -114,8 +114,118 @@ function httpJson(url, opts = {}) {
   });
 }
 
+// src/media.ts
+var MEDIA_KINDS = ["image", "audio", "file"];
+var MEDIA_AFTER_MESSAGES = 6;
+var MAX_MEDIA_BYTES = 20 * 1024 * 1024;
+var MAX_AUDIO_MS = 5 * 60 * 1e3;
+var AUDIO_EXT = ["m4a", "aac", "mp3", "ogg", "opus", "wav"];
+var FILE_EXT = [
+  "pdf",
+  "txt",
+  "csv",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "ppt",
+  "pptx",
+  "odt",
+  "ods",
+  "odp",
+  "rtf",
+  "zip",
+  "rar",
+  "7z",
+  "mp3",
+  "m4a",
+  "aac",
+  "ogg",
+  "wav",
+  "mp4",
+  "mov",
+  "3gp",
+  "webm",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "gif",
+  "heic"
+];
+var dir = () => env("MEDIA_DIR", "/tmp/zajel-media");
+var url = () => env("MEDIA_URL");
+function imageExt(b) {
+  if (b.length < 12) return null;
+  if (b[0] === 255 && b[1] === 216 && b[2] === 255) return "jpg";
+  if (b.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") return "png";
+  if (b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP") return "webp";
+  if (b.subarray(0, 4).toString() === "GIF8") return "gif";
+  return null;
+}
+function mediaExt(kind, body, name, mime) {
+  if (kind === "image") return imageExt(body);
+  const fromName = (/\.([a-z0-9]{1,5})$/i.exec(name)?.[1] ?? "").toLowerCase();
+  if (kind === "audio") {
+    const fromMime = { "audio/mp4": "m4a", "audio/m4a": "m4a", "audio/x-m4a": "m4a", "audio/aac": "aac", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/opus": "opus", "audio/wav": "wav", "audio/x-wav": "wav" };
+    const e = AUDIO_EXT.includes(fromName) ? fromName : fromMime[mime.split(";")[0].trim().toLowerCase()];
+    return e ?? null;
+  }
+  if (!FILE_EXT.includes(fromName)) return null;
+  return fromName === "jpeg" ? "jpg" : fromName;
+}
+function cleanName(name) {
+  const s = String(name ?? "").split(/[\\/]/).pop().replace(/[\u0000-\u001F\u007F<>"]/g, "").trim();
+  return [...s].slice(0, 120).join("") || "file";
+}
+function guard(chatRoot) {
+  const ht = (0, import_node_path2.join)(chatRoot, ".htaccess");
+  if ((0, import_node_fs2.existsSync)(ht)) return;
+  (0, import_node_fs2.writeFileSync)(ht, [
+    "Options -Indexes -ExecCGI",
+    "RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .shtml .htm .html",
+    "RemoveType .php .phtml .phar",
+    "<IfModule mod_headers.c>",
+    "  Header set X-Content-Type-Options nosniff",
+    '  <FilesMatch "\\.(?!(jpg|png|webp|gif|m4a|aac|mp3|ogg|opus|wav)$)[^.]+$">',
+    "    Header set Content-Disposition attachment",
+    "  </FilesMatch>",
+    "</IfModule>",
+    ""
+  ].join("\n"));
+}
+function saveMedia(chatId, ext, body) {
+  const root = (0, import_node_path2.join)(dir(), "chat");
+  (0, import_node_fs2.mkdirSync)(root, { recursive: true });
+  guard(root);
+  const folder = (0, import_node_path2.join)(root, chatId);
+  (0, import_node_fs2.mkdirSync)(folder, { recursive: true });
+  const file2 = `${(0, import_node_crypto.randomBytes)(12).toString("hex")}.${ext}`;
+  (0, import_node_fs2.writeFileSync)((0, import_node_path2.join)(folder, file2), body);
+  return `${url()}/chat/${chatId}/${file2}`;
+}
+function isChatMediaUrl(chatId, u) {
+  if (typeof u !== "string") return false;
+  const prefix = `${url()}/chat/${chatId}/`;
+  return u.startsWith(prefix) && /^[a-f0-9]{24}\.[a-z0-9]{2,5}$/.test(u.slice(prefix.length));
+}
+function removeChatMedia(chatId) {
+  try {
+    (0, import_node_fs2.rmSync)((0, import_node_path2.join)(dir(), "chat", chatId), { recursive: true, force: true });
+  } catch {
+  }
+}
+function mediaLabel(kind, name) {
+  return kind === "image" ? "\u{1F4F7}" : kind === "audio" ? "\u{1F3A4}" : `\u{1F4CE} ${name}`;
+}
+
+// src/users.ts
+var import_auth = require("firebase-admin/auth");
+var import_node_fs3 = require("node:fs");
+var import_node_path3 = require("node:path");
+
 // src/common.ts
-var import_node_crypto = require("node:crypto");
+var import_node_crypto2 = require("node:crypto");
 var import_firestore = require("firebase-admin/firestore");
 var db = () => (0, import_firestore.getFirestore)();
 function requireUid(req) {
@@ -130,7 +240,7 @@ var bad = (code) => {
 };
 var isVip = (u) => !!u.vipUntil && u.vipUntil.toMillis() > Date.now();
 var todayUtc = () => (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-var sha = (s) => (0, import_node_crypto.createHash)("sha256").update(s).digest("hex");
+var sha = (s) => (0, import_node_crypto2.createHash)("sha256").update(s).digest("hex");
 var numericUid = (uid) => parseInt(sha(uid).slice(0, 8), 16) % 2147483646 + 1;
 var playAccountId = (uid) => sha("zajel:" + uid).slice(0, 64);
 async function getUser(uid) {
@@ -181,7 +291,7 @@ function checkText(text, max, strict) {
 // src/users.ts
 var SETTING_KEYS = ["notif", "sound", "showCity", "calls", "ghost", "hideRead", "badge", "priority"];
 var VIP_ONLY = /* @__PURE__ */ new Set(["ghost", "hideRead", "priority"]);
-function cleanName(v) {
+function cleanName2(v) {
   const n = normalize(v).replace(/\n/g, " ");
   if ([...n].length < 2 || [...n].length > 30) bad("bad_name");
   return n;
@@ -189,7 +299,7 @@ function cleanName(v) {
 var initUser = onCall(async (req) => {
   const uid = requireUid(req);
   const d = req.data ?? {};
-  const name = cleanName(d.name);
+  const name = cleanName2(d.name);
   const year = Number(d.birthYear);
   const now = (/* @__PURE__ */ new Date()).getUTCFullYear();
   if (!Number.isInteger(year) || year < now - 100 || now - year < 18) bad("under_18");
@@ -238,7 +348,7 @@ var updateProfile = onCall(async (req) => {
   const priv = { lastActive: import_firestore.Timestamp.now() };
   const pub = {};
   if (d.name !== void 0) {
-    priv.name = pub.name = cleanName(d.name);
+    priv.name = pub.name = cleanName2(d.name);
   }
   if (d.bio !== void 0) pub.bio = normalize(d.bio).slice(0, 120);
   if (d.photoUrl !== void 0) {
@@ -282,7 +392,10 @@ var deleteAccount = onCall(async (req) => {
   const uid = requireUid(req);
   const store = db();
   const chats = await store.collection("chats").where("members", "array-contains", uid).get();
-  for (const c of chats.docs) await store.recursiveDelete(c.ref);
+  for (const c of chats.docs) {
+    await store.recursiveDelete(c.ref);
+    removeChatMedia(c.id);
+  }
   const pigeons = await store.collection("pigeons").where("from", "==", uid).get();
   const calls = await store.collection("calls").where("members", "array-contains", uid).get();
   const batch = store.batch();
@@ -292,7 +405,7 @@ var deleteAccount = onCall(async (req) => {
   batch.delete(store.doc(`users/${uid}`));
   await batch.commit();
   try {
-    (0, import_node_fs2.rmSync)((0, import_node_path2.join)(env("MEDIA_DIR", "/tmp"), "avatars", uid), { recursive: true, force: true });
+    (0, import_node_fs3.rmSync)((0, import_node_path3.join)(env("MEDIA_DIR", "/tmp"), "avatars", uid), { recursive: true, force: true });
   } catch {
   }
   await (0, import_auth.getAuth)().deleteUser(uid);
@@ -602,28 +715,53 @@ async function memberChat(uid, chatId) {
   if (!c || !c.members.includes(uid)) fail("not_member");
   return { ref, c, other: c.members.find((m) => m !== uid) };
 }
+function readMedia(chatId, m) {
+  if (m == null) return null;
+  const kind = String(m.kind);
+  if (!MEDIA_KINDS.includes(kind) || !isChatMediaUrl(chatId, m.url)) bad("bad_media");
+  const size = Math.max(0, Math.min(MAX_MEDIA_BYTES, Number(m.size) || 0));
+  const out = { kind, url: m.url, size };
+  if (kind === "file") out.name = cleanName(m.name);
+  if (kind === "audio") out.dur = Math.max(0, Math.min(MAX_AUDIO_MS, Math.round(Number(m.dur) || 0)));
+  if (kind === "image") {
+    const w = Number(m.w) || 0, h = Number(m.h) || 0;
+    if (w > 0 && h > 0) {
+      out.w = Math.round(w);
+      out.h = Math.round(h);
+    }
+  }
+  return out;
+}
 var sendMessage = onCall(async (req) => {
   const uid = requireUid(req);
-  const { ref, c, other } = await memberChat(uid, String(req.data?.chatId ?? ""));
+  const chatId = String(req.data?.chatId ?? "");
+  const { ref, c, other } = await memberChat(uid, chatId);
   if (c.blocked) fail("blocked");
+  const media = readMedia(chatId, req.data?.media);
+  if (media && (c.messageCount ?? 0) < MEDIA_AFTER_MESSAGES) fail("media_need_messages");
   const text = normalize(req.data?.text);
-  const problem = checkText(text, MAX_MESSAGE_LEN, (c.messageCount ?? 0) < STRICT_FIRST_MESSAGES);
-  if (problem) bad(problem);
+  if (!media || text) {
+    const problem = checkText(text, MAX_MESSAGE_LEN, (c.messageCount ?? 0) < STRICT_FIRST_MESSAGES);
+    if (problem) bad(problem);
+  }
   const [me, them] = await Promise.all([getUser(uid), db().doc(`users/${other}`).get().then((s) => s.data())]);
   if (!them) fail("user_gone");
   if ((them.blocked ?? []).includes(uid) || (me.blocked ?? []).includes(other)) fail("blocked");
-  const { src, tr } = await translateAll(text, [me.lang, them.lang], me.lang);
+  const { src, tr } = text ? await translateAll(text, [me.lang, them.lang], me.lang) : { src: me.lang, tr: {} };
   const now = import_firestore.Timestamp.now();
-  await ref.collection("messages").add({ from: uid, text, src, tr, at: now });
+  const label = media ? mediaLabel(media.kind, String(media.name ?? "")) : "";
+  await ref.collection("messages").add({ from: uid, text, src, tr, at: now, ...media ? { media } : {} });
+  const lastText = media ? text ? `${label} ${text}` : label : text;
+  const lastTr = media && text ? Object.fromEntries(Object.entries(tr).map(([k, v]) => [k, `${label} ${v}`])) : tr;
   await ref.update({
     updatedAt: now,
-    last: { from: uid, text, tr, at: now },
+    last: { from: uid, text: lastText, tr: lastTr, at: now },
     messageCount: import_firestore.FieldValue.increment(1),
     [`unread.${other}`]: import_firestore.FieldValue.increment(1),
     [`unread.${uid}`]: 0
   });
   await db().doc(`users/${uid}`).update({ lastActive: now });
-  await pushTo(other, { title: me.name, body: tr[them.lang] ?? text, data: { type: "chat", chatId: ref.id } });
+  await pushTo(other, { title: me.name, body: lastTr[them.lang] ?? lastText, data: { type: "chat", chatId: ref.id } });
   return { ok: true, src };
 });
 var markRead = onCall(async (req) => {
@@ -951,14 +1089,33 @@ r.post("/avatar", import_express.default.raw({ type: Object.keys(IMAGE_TYPES), l
     const ext = IMAGE_TYPES[String(req.headers["content-type"]).split(";")[0]];
     const body = req.body;
     if (!ext || !Buffer.isBuffer(body) || body.length < 100 || !looksLikeImage(body)) throw new HttpsError("invalid-argument", "bad_photo");
-    const dir = (0, import_node_path3.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
-    (0, import_node_fs3.mkdirSync)(dir, { recursive: true });
-    for (const f of (0, import_node_fs3.readdirSync)(dir)) (0, import_node_fs3.rmSync)((0, import_node_path3.join)(dir, f), { force: true });
+    const dir2 = (0, import_node_path4.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
+    (0, import_node_fs4.mkdirSync)(dir2, { recursive: true });
+    for (const f of (0, import_node_fs4.readdirSync)(dir2)) (0, import_node_fs4.rmSync)((0, import_node_path4.join)(dir2, f), { force: true });
     const name = `${Date.now()}.${ext}`;
-    (0, import_node_fs3.writeFileSync)((0, import_node_path3.join)(dir, name), body);
-    const url = `${env("MEDIA_URL")}/avatars/${uid}/${name}`;
-    await (0, import_firestore3.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url }, { merge: true });
-    res.json({ result: { url } });
+    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(dir2, name), body);
+    const url2 = `${env("MEDIA_URL")}/avatars/${uid}/${name}`;
+    await (0, import_firestore3.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url2 }, { merge: true });
+    res.json({ result: { url: url2 } });
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+r.post("/media", import_express.default.raw({ type: () => true, limit: "20mb" }), async (req, res) => {
+  try {
+    const uid = await uidFrom(req).catch(() => void 0);
+    if (!uid) throw new HttpsError("unauthenticated", "login_required");
+    const chatId = String(req.query.chatId ?? "");
+    const kind = String(req.query.kind ?? "");
+    if (!/^[A-Za-z0-9_-]{6,64}$/.test(chatId) || !MEDIA_KINDS.includes(kind)) throw new HttpsError("invalid-argument", "bad_media");
+    const { c } = await memberChat(uid, chatId);
+    if (c.blocked) throw new HttpsError("failed-precondition", "blocked");
+    if ((c.messageCount ?? 0) < MEDIA_AFTER_MESSAGES) throw new HttpsError("failed-precondition", "media_need_messages");
+    const body = req.body;
+    if (!Buffer.isBuffer(body) || body.length < 16) throw new HttpsError("invalid-argument", "bad_media");
+    const ext = mediaExt(kind, body, String(req.query.name ?? ""), String(req.headers["content-type"] ?? ""));
+    if (!ext) throw new HttpsError("invalid-argument", kind === "image" ? "bad_photo" : "bad_file_type");
+    res.json({ result: { url: saveMedia(chatId, ext, body), size: body.length } });
   } catch (e) {
     sendError(res, e);
   }
@@ -988,5 +1145,9 @@ r.get("/cron", async (req, res) => {
 var base = env("BASE_PATH", "/zajel-api").replace(/\/$/, "");
 app.use(base, r);
 app.use("/", r);
+app.use((err, _req, res, _next) => {
+  if (err?.type === "entity.too.large") res.status(413).json({ error: { code: "invalid-argument", message: "file_too_big" } });
+  else sendError(res, err);
+});
 var port = Number(env("PORT", "3000"));
 app.listen(port, () => logger.info(`zajel api on ${port}${base} freeMode=${FREE_MODE}`));

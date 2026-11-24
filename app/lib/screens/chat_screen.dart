@@ -1,5 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 
 import '../core/api.dart';
 import '../core/app_state.dart';
@@ -7,6 +15,7 @@ import '../core/config.dart';
 import '../core/i18n.dart';
 import '../core/models.dart';
 import '../core/session.dart';
+import '../widgets/chat_media.dart';
 import '../widgets/common.dart';
 import 'call_screen.dart';
 
@@ -24,11 +33,138 @@ class _ChatScreenState extends State<ChatScreen> {
   final Set<String> _orig = {};
   bool _sending = false;
   String? _lastReadFor;
+  ChatInfo? _chatNow;
+
+  // voice message recording
+  final AudioRecorder _rec = AudioRecorder();
+  bool _recording = false;
+  DateTime? _recStart;
+  Timer? _recTick;
+  Duration _recLen = Duration.zero;
 
   @override
   void dispose() {
+    _recTick?.cancel();
+    _rec.dispose();
     _input.dispose();
     super.dispose();
+  }
+
+  /// Photos, voice messages and files unlock after a few messages, so strangers cannot open with them.
+  bool _mediaReady() {
+    if ((_chatNow?.messageCount ?? 0) >= Cfg.mediaAfterMessages) return true;
+    showInfo(context, context.t('err_media_need_messages'));
+    return false;
+  }
+
+  Future<void> _attach() async {
+    if (_sending || !_mediaReady()) return;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(leading: const Icon(Icons.photo_library_outlined), title: Text(c.t('attach_photo')), onTap: () => Navigator.pop(c, 'gallery')),
+          ListTile(leading: const Icon(Icons.photo_camera_outlined), title: Text(c.t('attach_camera')), onTap: () => Navigator.pop(c, 'camera')),
+          ListTile(leading: const Icon(Icons.attach_file), title: Text(c.t('attach_file')), onTap: () => Navigator.pop(c, 'file')),
+        ]),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == 'file') {
+      await _pickFile();
+    } else {
+      await _pickPhoto(choice == 'camera' ? ImageSource.camera : ImageSource.gallery);
+    }
+  }
+
+  Future<void> _pickPhoto(ImageSource src) async {
+    final x = await ImagePicker().pickImage(source: src, maxWidth: 2048, maxHeight: 2048, imageQuality: 82);
+    if (x == null) return;
+    final bytes = await x.readAsBytes();
+    final extra = <String, Object>{};
+    try {
+      final img = await decodeImageFromList(bytes);
+      extra['w'] = img.width;
+      extra['h'] = img.height;
+      img.dispose();
+    } catch (_) {/* the size is optional */}
+    final mime = x.mimeType ?? (x.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
+    await _sendMedia('image', bytes, mime, extra: extra);
+  }
+
+  Future<void> _pickFile() async {
+    final r = await FilePicker.platform.pickFiles(withData: true);
+    final f = r?.files.single;
+    if (f == null || !mounted) return;
+    if (f.size > Cfg.maxMediaBytes) {
+      showInfo(context, context.t('err_file_too_big'));
+      return;
+    }
+    final bytes = f.bytes ?? (f.path != null ? await File(f.path!).readAsBytes() : null);
+    if (bytes == null) return;
+    await _sendMedia('file', bytes, '', name: f.name);
+  }
+
+  Future<void> _sendMedia(String kind, Uint8List bytes, String mime, {String name = '', Map<String, Object> extra = const {}}) async {
+    setState(() => _sending = true);
+    try {
+      final url = await Api.uploadMedia(widget.chatId, kind, bytes, mime, name: name);
+      final caption = kind == 'audio' ? '' : _input.text.trim();
+      await Api.call('sendMessage', {
+        'chatId': widget.chatId,
+        'text': caption,
+        'media': {'kind': kind, 'url': url, 'size': bytes.length, if (name.isNotEmpty) 'name': name, ...extra},
+      });
+      if (caption.isNotEmpty) _input.clear();
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _startVoice() async {
+    if (_sending || _recording || !_mediaReady()) return;
+    if (!await _rec.hasPermission()) {
+      if (mounted) showInfo(context, context.t('mic_denied'));
+      return;
+    }
+    final dir = await getTemporaryDirectory();
+    await _rec.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc, bitRate: 64000, sampleRate: 44100, numChannels: 1),
+      path: '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+    );
+    _recStart = DateTime.now();
+    _recTick = Timer.periodic(const Duration(milliseconds: 250), (_) {
+      final d = DateTime.now().difference(_recStart!);
+      if (mounted) setState(() => _recLen = d);
+      if (d >= const Duration(minutes: 5)) _stopVoice(send: true);
+    });
+    setState(() => _recording = true);
+  }
+
+  Future<void> _stopVoice({required bool send}) async {
+    if (!_recording) return;
+    _recTick?.cancel();
+    _recTick = null;
+    final len = _recStart == null ? Duration.zero : DateTime.now().difference(_recStart!);
+    final path = await _rec.stop();
+    if (mounted) {
+      setState(() {
+        _recording = false;
+        _recLen = Duration.zero;
+      });
+    }
+    if (path == null) return;
+    final f = File(path);
+    try {
+      if (send && len >= const Duration(milliseconds: 800)) {
+        await _sendMedia('audio', await f.readAsBytes(), 'audio/mp4', name: 'voice.m4a', extra: {'dur': len.inMilliseconds});
+      }
+    } finally {
+      if (await f.exists()) await f.delete();
+    }
   }
 
   void _markRead(List<Msg> msgs) {
@@ -135,6 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
       stream: _chat,
       builder: (context, cs) {
         final chat = cs.data;
+        _chatNow = chat;
         final otherId = chat?.other(Api.uid) ?? '';
         return FutureBuilder<Profile>(
           future: otherId.isEmpty ? null : Api.profileOnce(otherId),
@@ -196,6 +333,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           final seen = mine && i == 0 && seenAt != null && m.at != null && !seenAt.isBefore(m.at!);
                           return _Bubble(
                             mine: mine,
+                            media: m.media,
                             text: main,
                             alt: showAlt ? alt : null,
                             meta: [
@@ -219,28 +357,41 @@ class _ChatScreenState extends State<ChatScreen> {
                     top: false,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
-                      child: Row(children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _input,
-                            minLines: 1,
-                            maxLines: 5,
-                            maxLength: Cfg.maxMessageLen,
-                            textInputAction: TextInputAction.newline,
-                            decoration: InputDecoration(
-                              hintText: context.t('message_hint', {'lang': otherLang.isEmpty ? '…' : otherLang}),
-                              counterText: '',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton.filled(
-                          onPressed: _sending ? null : _send,
-                          icon: _sending ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.send),
-                        ),
-                      ]),
+                      child: _recording
+                          ? Row(children: [
+                              IconButton(tooltip: context.t('cancel'), onPressed: () => _stopVoice(send: false), icon: const Icon(Icons.delete_outline)),
+                              const Icon(Icons.fiber_manual_record, color: kRed, size: 14),
+                              const SizedBox(width: 6),
+                              Expanded(child: Text(context.t('voice_recording', {'time': clock(_recLen)}))),
+                              IconButton.filled(onPressed: () => _stopVoice(send: true), icon: const Icon(Icons.send)),
+                            ])
+                          : Row(children: [
+                              IconButton(tooltip: context.t('attach'), onPressed: _sending ? null : _attach, icon: const Icon(Icons.add_circle_outline)),
+                              Expanded(
+                                child: TextField(
+                                  controller: _input,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  maxLength: Cfg.maxMessageLen,
+                                  textInputAction: TextInputAction.newline,
+                                  decoration: InputDecoration(
+                                    hintText: context.t('message_hint', {'lang': otherLang.isEmpty ? '…' : otherLang}),
+                                    counterText: '',
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ValueListenableBuilder<TextEditingValue>(
+                                valueListenable: _input,
+                                builder: (context, v, _) => _sending
+                                    ? const IconButton.filled(onPressed: null, icon: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)))
+                                    : v.text.trim().isEmpty
+                                        ? IconButton.filled(tooltip: context.t('voice_record'), onPressed: _startVoice, icon: const Icon(Icons.mic))
+                                        : IconButton.filled(onPressed: _send, icon: const Icon(Icons.send)),
+                              ),
+                            ]),
                     ),
                   ),
               ]),
@@ -253,8 +404,9 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.mine, required this.text, required this.alt, required this.meta, required this.onToggle, required this.toggleLabel});
+  const _Bubble({required this.mine, this.media, required this.text, required this.alt, required this.meta, required this.onToggle, required this.toggleLabel});
   final bool mine;
+  final MsgMedia? media;
   final String text;
   final String? alt;
   final String meta;
@@ -271,7 +423,7 @@ class _Bubble extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * .8),
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          padding: EdgeInsets.fromLTRB(media == null ? 12 : 6, media == null ? 10 : 6, media == null ? 12 : 6, 4),
           decoration: BoxDecoration(
             color: mine ? cs.primary : cs.surfaceContainerHighest,
             borderRadius: BorderRadiusDirectional.only(
@@ -280,7 +432,9 @@ class _Bubble extends StatelessWidget {
             ),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SelectableText(text, style: TextStyle(color: fg, fontSize: 16)),
+            if (media != null) MessageMedia(media: media!, fg: fg),
+            if (media != null && text.isNotEmpty) const SizedBox(height: 6),
+            if (text.isNotEmpty) SelectableText(text, style: TextStyle(color: fg, fontSize: 16)),
             if (alt != null)
               Container(
                 margin: const EdgeInsets.only(top: 6),
@@ -290,7 +444,7 @@ class _Bubble extends StatelessWidget {
               ),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Flexible(child: Text(meta, style: TextStyle(color: fg.withValues(alpha: .7), fontSize: 12))),
-              TextButton(
+              if (text.isNotEmpty) TextButton(
                 onPressed: onToggle,
                 style: TextButton.styleFrom(foregroundColor: fg.withValues(alpha: .85), padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32), textStyle: const TextStyle(fontSize: 12)),
                 child: Text(toggleLabel),

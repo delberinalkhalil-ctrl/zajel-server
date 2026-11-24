@@ -149,6 +149,23 @@ class Msg {
   Map<String, String> get tr => _sm(d['tr']);
   DateTime? get at => _ts(d['at']);
   bool get pigeon => d['pigeon'] == true;
+
+  /// Attachment: null for a plain text message.
+  MsgMedia? get media => d['media'] is Map ? MsgMedia(Map<String, dynamic>.from(d['media'] as Map)) : null;
+}
+
+class MsgMedia {
+  MsgMedia(this.d);
+  final Map<String, dynamic> d;
+  String get kind => _s(d['kind']);
+  String get url => _s(d['url']);
+  String get name => _s(d['name']);
+  int get size => (d['size'] as num?)?.toInt() ?? 0;
+  Duration get dur => Duration(milliseconds: (d['dur'] as num?)?.toInt() ?? 0);
+  double? get aspect {
+    final w = (d['w'] as num?)?.toDouble(), h = (d['h'] as num?)?.toDouble();
+    return w != null && h != null && w > 0 && h > 0 ? w / h : null;
+  }
 }
 
 class CallInfo {

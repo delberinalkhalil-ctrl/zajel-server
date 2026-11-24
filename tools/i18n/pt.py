@@ -254,5 +254,18 @@ T = {
 "delete_body_free": 'Suas conversas, pombos e perfil serão excluídos. Não pode ser desfeito.',
 "err_daily_limit": 'Você já soltou os pombos de hoje. Volte amanhã.',
 "err_calls_unavailable": 'As chamadas ainda não estão disponíveis.',
-"err_store_closed": 'A loja está fechada.'
+"err_store_closed": 'A loja está fechada.',
+"attach": "Anexar",
+"attach_photo": "Foto da galeria",
+"attach_camera": "Tirar uma foto",
+"attach_file": "Arquivo",
+"voice_record": "Gravar uma mensagem de voz",
+"voice_recording": "Gravando… {time}",
+"mic_denied": "Permita o microfone para gravar mensagens de voz.",
+"open_file": "Abrir",
+"err_media_need_messages": "Fotos, mensagens de voz e arquivos são liberados após 6 mensagens nesta conversa.",
+"err_file_too_big": "Este arquivo é grande demais (no máximo 20 MB).",
+"err_bad_file_type": "Este tipo de arquivo não pode ser enviado.",
+"err_bad_media": "Não foi possível enviar este anexo.",
+"err_bad_photo": "Não foi possível usar esta foto. Tente outra."
 }

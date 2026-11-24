@@ -1,3 +1,4 @@
+import { removeChatMedia } from './media';
 import { getAuth } from 'firebase-admin/auth';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -100,7 +101,7 @@ export const deleteAccount = onCall(async req => {
   const uid = requireUid(req);
   const store = db();
   const chats = await store.collection('chats').where('members', 'array-contains', uid).get();
-  for (const c of chats.docs) await store.recursiveDelete(c.ref);
+  for (const c of chats.docs) { await store.recursiveDelete(c.ref); removeChatMedia(c.id); }
   const pigeons = await store.collection('pigeons').where('from', '==', uid).get();
   const calls = await store.collection('calls').where('members', 'array-contains', uid).get();
   const batch = store.batch();

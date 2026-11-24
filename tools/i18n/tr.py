@@ -254,5 +254,18 @@ T = {
 "delete_body_free": 'Sohbetlerin, güvercinlerin ve profilin silinecek. Geri alınamaz.',
 "err_daily_limit": 'Bugünkü güvercinlerinin hepsini bıraktın. Yarın yine gel.',
 "err_calls_unavailable": 'Aramalar henüz kullanılamıyor.',
-"err_store_closed": 'Mağaza kapalı.'
+"err_store_closed": 'Mağaza kapalı.',
+"attach": "Ekle",
+"attach_photo": "Galeriden fotoğraf",
+"attach_camera": "Fotoğraf çek",
+"attach_file": "Dosya",
+"voice_record": "Sesli mesaj kaydet",
+"voice_recording": "Kaydediliyor… {time}",
+"mic_denied": "Sesli mesaj kaydetmek için mikrofona izin verin.",
+"open_file": "Aç",
+"err_media_need_messages": "Fotoğraflar, sesli mesajlar ve dosyalar bu sohbette 6 mesajdan sonra açılır.",
+"err_file_too_big": "Bu dosya çok büyük (en fazla 20 MB).",
+"err_bad_file_type": "Bu dosya türü gönderilemez.",
+"err_bad_media": "Bu ek gönderilemedi.",
+"err_bad_photo": "Bu fotoğraf kullanılamadı. Başka bir tane deneyin."
 }

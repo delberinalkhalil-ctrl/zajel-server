@@ -23,14 +23,14 @@ class Api {
   static String get uid => FirebaseAuth.instance.currentUser?.uid ?? '';
   static final _http = HttpClient()..connectionTimeout = const Duration(seconds: 15);
 
-  static Future<Map<String, dynamic>> _send(String path, List<int> body, String contentType) async {
+  static Future<Map<String, dynamic>> _send(String path, List<int> body, String contentType, {Duration timeout = const Duration(seconds: 40)}) async {
     final token = await FirebaseAuth.instance.currentUser?.getIdToken();
     try {
       final req = await _http.postUrl(Uri.parse('${Cfg.apiBase}$path'));
       req.headers.set(HttpHeaders.contentTypeHeader, contentType);
       if (token != null) req.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       req.add(body);
-      final res = await req.close().timeout(const Duration(seconds: 40));
+      final res = await req.close().timeout(timeout);
       final text = await res.transform(utf8.decoder).join();
       final json = text.isEmpty ? <String, dynamic>{} : jsonDecode(text) as Map<String, dynamic>;
       final err = json['error'];
@@ -51,6 +51,13 @@ class Api {
       _send('/call/$name', utf8.encode(jsonEncode({'data': data ?? <String, dynamic>{}})), 'application/json');
 
   /// Uploads a profile photo; the server stores it and updates the profile. Returns the new URL.
+  /// Uploads a chat attachment (kind: image, audio or file) and returns its URL for sendMessage.
+  static Future<String> uploadMedia(String chatId, String kind, Uint8List bytes, String mimeType, {String name = ''}) async {
+    final q = Uri(queryParameters: {'chatId': chatId, 'kind': kind, 'name': name}).query;
+    final r = await _send('/media?$q', bytes, mimeType.isEmpty ? 'application/octet-stream' : mimeType, timeout: const Duration(minutes: 3));
+    return '${r['url'] ?? ''}';
+  }
+
   static Future<String> uploadAvatar(Uint8List bytes, String mimeType) async {
     final r = await _send('/avatar', bytes, mimeType);
     return '${r['url'] ?? ''}';

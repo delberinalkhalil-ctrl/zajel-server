@@ -254,5 +254,18 @@ T = {
 "delete_body_free": 'Your chats, pigeons and profile will be deleted. This cannot be undone.',
 "err_daily_limit": "You have released today's pigeons. Come back tomorrow for more.",
 "err_calls_unavailable": 'Calls are not available yet.',
-"err_store_closed": 'The store is closed.'
+"err_store_closed": 'The store is closed.',
+"attach": "Attach",
+"attach_photo": "Photo from gallery",
+"attach_camera": "Take a photo",
+"attach_file": "File",
+"voice_record": "Record a voice message",
+"voice_recording": "Recording… {time}",
+"mic_denied": "Allow the microphone to record voice messages.",
+"open_file": "Open",
+"err_media_need_messages": "Photos, voice messages and files unlock after 6 messages in this chat.",
+"err_file_too_big": "This file is too large (20 MB at most).",
+"err_bad_file_type": "This type of file cannot be sent.",
+"err_bad_media": "This attachment could not be sent.",
+"err_bad_photo": "This photo could not be used. Try another one."
 }

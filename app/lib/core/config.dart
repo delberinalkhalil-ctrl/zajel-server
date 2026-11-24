@@ -18,6 +18,10 @@ class Cfg {
   static const maxPigeonLen = 400;
   static const maxMessageLen = 1000;
 
+  /// Photos, voice messages and files unlock after this many messages in a chat (same rule as the server).
+  static const mediaAfterMessages = 6;
+  static const maxMediaBytes = 20 * 1024 * 1024;
+
   static const pointProducts = {'points_100': 100, 'points_550': 550, 'points_1200': 1200, 'points_3000': 3000};
   static const pointBonus = {'points_550': '+10%', 'points_1200': '+20%', 'points_3000': 'best'};
   static const vipProducts = ['vip_monthly', 'vip_quarterly', 'vip_yearly'];

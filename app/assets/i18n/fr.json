@@ -254,5 +254,18 @@
  "delete_body_free": "Vos discussions, vos pigeons et votre profil seront supprimés. Action irréversible.",
  "err_daily_limit": "Vous avez lâché tous vos pigeons du jour. Revenez demain.",
  "err_calls_unavailable": "Les appels ne sont pas encore disponibles.",
- "err_store_closed": "La boutique est fermée."
+ "err_store_closed": "La boutique est fermée.",
+ "attach": "Joindre",
+ "attach_photo": "Photo de la galerie",
+ "attach_camera": "Prendre une photo",
+ "attach_file": "Fichier",
+ "voice_record": "Enregistrer un message vocal",
+ "voice_recording": "Enregistrement… {time}",
+ "mic_denied": "Autorisez le micro pour enregistrer des messages vocaux.",
+ "open_file": "Ouvrir",
+ "err_media_need_messages": "Les photos, messages vocaux et fichiers sont disponibles après 6 messages dans cette conversation.",
+ "err_file_too_big": "Ce fichier est trop volumineux (20 Mo maximum).",
+ "err_bad_file_type": "Ce type de fichier ne peut pas être envoyé.",
+ "err_bad_media": "Cette pièce jointe n'a pas pu être envoyée.",
+ "err_bad_photo": "Cette photo ne peut pas être utilisée. Essayez-en une autre."
 }

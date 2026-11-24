@@ -254,5 +254,18 @@
  "delete_body_free": "Axaftin, kevok û profîla te dê jê biçin. Nayê vegerandin.",
  "err_daily_limit": "Te hemû kevokên îro berdan. Sibê dîsa were.",
  "err_calls_unavailable": "Bang hêj ne berdest in.",
- "err_store_closed": "Dikan girtî ye."
+ "err_store_closed": "Dikan girtî ye.",
+ "attach": "Pêve bike",
+ "attach_photo": "Wêne ji galeriyê",
+ "attach_camera": "Wêne bikişîne",
+ "attach_file": "Pel",
+ "voice_record": "Peyama dengî tomar bike",
+ "voice_recording": "Tomar dibe… {time}",
+ "mic_denied": "Ji bo tomarkirina peyamên dengî destûrê bide mîkrofonê.",
+ "open_file": "Veke",
+ "err_media_need_messages": "Wêne, peyamên dengî û pel piştî 6 peyaman di vê sohbetê de vedibin.",
+ "err_file_too_big": "Ev pel pir mezin e (herî zêde 20 MB).",
+ "err_bad_file_type": "Ev cureyê pelê nayê şandin.",
+ "err_bad_media": "Ev pêvek nehat şandin.",
+ "err_bad_photo": "Ev wêne nayê bikaranîn. Yekî din biceribîne."
 }

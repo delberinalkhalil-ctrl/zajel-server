@@ -20,6 +20,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { FREE_MODE } from './config';
 import { handlers, pigeonClock, vipExpiry } from './index';
 import { env, HttpsError, logger } from './runtime';
+import { memberChat } from './chats';
+import { MEDIA_AFTER_MESSAGES, MEDIA_KINDS, MediaKind, mediaExt, saveMedia } from './media';
 
 initializeApp();
 
@@ -100,6 +102,30 @@ r.post('/avatar', express.raw({ type: Object.keys(IMAGE_TYPES), limit: '5mb' }),
   }
 });
 
+/**
+ * Chat attachments: raw body, at most 20 MB. Query: chatId, kind (image | audio | file), name (original file name).
+ * Returns the public URL to send with sendMessage({chatId, media: {kind, url, ...}}).
+ */
+r.post('/media', express.raw({ type: () => true, limit: '20mb' }), async (req, res) => {
+  try {
+    const uid = await uidFrom(req).catch(() => undefined);
+    if (!uid) throw new HttpsError('unauthenticated', 'login_required');
+    const chatId = String(req.query.chatId ?? '');
+    const kind = String(req.query.kind ?? '') as MediaKind;
+    if (!/^[A-Za-z0-9_-]{6,64}$/.test(chatId) || !MEDIA_KINDS.includes(kind)) throw new HttpsError('invalid-argument', 'bad_media');
+    const { c } = await memberChat(uid, chatId);
+    if (c.blocked) throw new HttpsError('failed-precondition', 'blocked');
+    if ((c.messageCount ?? 0) < MEDIA_AFTER_MESSAGES) throw new HttpsError('failed-precondition', 'media_need_messages');
+    const body = req.body as Buffer;
+    if (!Buffer.isBuffer(body) || body.length < 16) throw new HttpsError('invalid-argument', 'bad_media');
+    const ext = mediaExt(kind, body, String(req.query.name ?? ''), String(req.headers['content-type'] ?? ''));
+    if (!ext) throw new HttpsError('invalid-argument', kind === 'image' ? 'bad_photo' : 'bad_file_type');
+    res.json({ result: { url: saveMedia(chatId, ext, body), size: body.length } });
+  } catch (e) {
+    sendError(res, e);
+  }
+});
+
 /** Called every minute by cron: lands pigeons, retries waiting ones, and hourly expires VIP. */
 let running = false;
 r.get('/cron', async (req, res) => {
@@ -127,6 +153,11 @@ r.get('/cron', async (req, res) => {
 const base = env('BASE_PATH', '/zajel-api').replace(/\/$/, '');
 app.use(base, r);
 app.use('/', r); // some hosts strip the prefix before the request reaches the app
+// Body parser errors (for example a file over 20 MB) come back as the usual JSON error.
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  if (err?.type === 'entity.too.large') res.status(413).json({ error: { code: 'invalid-argument', message: 'file_too_big' } });
+  else sendError(res, err);
+});
 
 const port = Number(env('PORT', '3000'));
 app.listen(port, () => logger.info(`zajel api on ${port}${base} freeMode=${FREE_MODE}`));

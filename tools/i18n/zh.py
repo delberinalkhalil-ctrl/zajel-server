@@ -254,5 +254,18 @@ T = {
 "delete_body_free": '你的聊天、信鸽和资料都将被删除，且无法恢复。',
 "err_daily_limit": '今天的信鸽已全部放飞，明天再来吧。',
 "err_calls_unavailable": '通话功能暂未开放。',
-"err_store_closed": '商店已关闭。'
+"err_store_closed": '商店已关闭。',
+"attach": "附件",
+"attach_photo": "从相册选择照片",
+"attach_camera": "拍照",
+"attach_file": "文件",
+"voice_record": "录制语音消息",
+"voice_recording": "正在录音… {time}",
+"mic_denied": "请允许使用麦克风以录制语音消息。",
+"open_file": "打开",
+"err_media_need_messages": "此聊天满 6 条消息后才能发送照片、语音消息和文件。",
+"err_file_too_big": "文件过大（最多 20 MB）。",
+"err_bad_file_type": "无法发送此类型的文件。",
+"err_bad_media": "无法发送此附件。",
+"err_bad_photo": "无法使用这张照片，请换一张。"
 }

@@ -254,5 +254,18 @@ T = {
 "delete_body_free": 'Se eliminarán tus chats, palomas y perfil. No se puede deshacer.',
 "err_daily_limit": 'Ya soltaste las palomas de hoy. Vuelve mañana.',
 "err_calls_unavailable": 'Las llamadas aún no están disponibles.',
-"err_store_closed": 'La tienda está cerrada.'
+"err_store_closed": 'La tienda está cerrada.',
+"attach": "Adjuntar",
+"attach_photo": "Foto de la galería",
+"attach_camera": "Hacer una foto",
+"attach_file": "Archivo",
+"voice_record": "Grabar un mensaje de voz",
+"voice_recording": "Grabando… {time}",
+"mic_denied": "Permite el micrófono para grabar mensajes de voz.",
+"open_file": "Abrir",
+"err_media_need_messages": "Las fotos, los mensajes de voz y los archivos se desbloquean tras 6 mensajes en este chat.",
+"err_file_too_big": "Este archivo es demasiado grande (20 MB como máximo).",
+"err_bad_file_type": "Este tipo de archivo no se puede enviar.",
+"err_bad_media": "No se pudo enviar este adjunto.",
+"err_bad_photo": "No se pudo usar esta foto. Prueba con otra."
 }

@@ -59,3 +59,39 @@ test('ids are stable', () => {
   assert.ok(numericUid('abc') >= 1 && numericUid('abc') < 2 ** 31);
   assert.equal(playAccountId('u1').length, 64);
 });
+
+import { cleanName, imageExt, isChatMediaUrl, mediaExt } from '../media';
+
+test('media: images are recognised by their bytes, not their name', () => {
+  const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(20)]);
+  const png = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), Buffer.alloc(20)]);
+  const fake = Buffer.from('<?php echo 1; ?>  padding padding');
+  assert.equal(imageExt(jpg), 'jpg');
+  assert.equal(imageExt(png), 'png');
+  assert.equal(imageExt(fake), null);
+  assert.equal(mediaExt('image', fake, 'photo.jpg', 'image/jpeg'), null);
+});
+
+test('media: only harmless file types are stored', () => {
+  const b = Buffer.alloc(32);
+  assert.equal(mediaExt('file', b, 'report.PDF', ''), 'pdf');
+  assert.equal(mediaExt('file', b, 'shell.php', ''), null);
+  assert.equal(mediaExt('file', b, 'page.html', ''), null);
+  assert.equal(mediaExt('file', b, 'image.svg', ''), null);
+  assert.equal(mediaExt('file', b, 'app.apk', ''), null);
+  assert.equal(mediaExt('file', b, 'noext', ''), null);
+  assert.equal(mediaExt('audio', b, 'voice.m4a', ''), 'm4a');
+  assert.equal(mediaExt('audio', b, 'voice', 'audio/mp4'), 'm4a');
+  assert.equal(mediaExt('audio', b, 'x.php', 'text/html'), null);
+});
+
+test('media: links must point to this chat', () => {
+  process.env.MEDIA_URL = 'https://example.com/media';
+  const ok = 'https://example.com/media/chat/abc123/0123456789abcdef01234567.jpg';
+  assert.equal(isChatMediaUrl('abc123', ok), true);
+  assert.equal(isChatMediaUrl('other1', ok), false);
+  assert.equal(isChatMediaUrl('abc123', 'https://evil.com/media/chat/abc123/0123456789abcdef01234567.jpg'), false);
+  assert.equal(isChatMediaUrl('abc123', 'https://example.com/media/chat/abc123/../x.jpg'), false);
+  assert.equal(cleanName('../../etc/passwd'), 'passwd');
+  assert.equal(cleanName('my "report" <v2>.pdf'), 'my report v2.pdf');
+});
