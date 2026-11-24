@@ -59,12 +59,21 @@ export const sendMessage = onCall(async req => {
   return { ok: true, src };
 });
 
+/** Marks that the app has received the chat's latest messages (the double grey tick). */
+export const markDelivered = onCall(async req => {
+  const uid = requireUid(req);
+  const { ref } = await memberChat(uid, String(req.data?.chatId ?? ''));
+  await ref.update({ [`deliveredAt.${uid}`]: Timestamp.now() });
+  return { ok: true };
+});
+
 /** Clears the unread counter. VIP members who hide read receipts do not publish a read time. */
 export const markRead = onCall(async req => {
   const uid = requireUid(req);
   const { ref } = await memberChat(uid, String(req.data?.chatId ?? ''));
   const u = await getUser(uid);
   const hide = isVip(u) && u.settings?.hideRead;
-  await ref.update({ [`unread.${uid}`]: 0, ...(hide ? {} : { [`readAt.${uid}`]: Timestamp.now() }) });
+  const now = Timestamp.now();
+  await ref.update({ [`unread.${uid}`]: 0, [`deliveredAt.${uid}`]: now, ...(hide ? {} : { [`readAt.${uid}`]: now }) });
   return { ok: true };
 });

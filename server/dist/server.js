@@ -34,8 +34,8 @@ if ((0, import_node_fs.existsSync)(file)) {
 }
 
 // src/server.ts
-var import_node_fs4 = require("node:fs");
-var import_node_path4 = require("node:path");
+var import_node_fs5 = require("node:fs");
+var import_node_path5 = require("node:path");
 var import_express = __toESM(require("express"));
 var import_app = require("firebase-admin/app");
 var import_auth2 = require("firebase-admin/auth");
@@ -771,12 +771,19 @@ var sendMessage = onCall(async (req) => {
   await pushTo(other, { title: me.name, body: lastTr[them.lang] ?? lastText, data: { type: "chat", chatId: ref.id } });
   return { ok: true, src };
 });
+var markDelivered = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { ref } = await memberChat(uid, String(req.data?.chatId ?? ""));
+  await ref.update({ [`deliveredAt.${uid}`]: import_firestore.Timestamp.now() });
+  return { ok: true };
+});
 var markRead = onCall(async (req) => {
   const uid = requireUid(req);
   const { ref } = await memberChat(uid, String(req.data?.chatId ?? ""));
   const u = await getUser(uid);
   const hide = isVip(u) && u.settings?.hideRead;
-  await ref.update({ [`unread.${uid}`]: 0, ...hide ? {} : { [`readAt.${uid}`]: import_firestore.Timestamp.now() } });
+  const now = import_firestore.Timestamp.now();
+  await ref.update({ [`unread.${uid}`]: 0, [`deliveredAt.${uid}`]: now, ...hide ? {} : { [`readAt.${uid}`]: now } });
   return { ok: true };
 });
 
@@ -1026,12 +1033,16 @@ var reportUser = onCall(async (req) => {
   const reason = String(req.data?.reason ?? "");
   if (!target || target === uid) bad("bad_user");
   if (!REASONS.includes(reason)) bad("bad_reason");
+  const chatId = String(req.data?.chatId ?? "");
+  const chat = chatId ? (await db().doc(`chats/${chatId}`).get()).data() : void 0;
+  const members = chat?.members ?? [];
+  if (!members.includes(uid) || !members.includes(target)) bad("not_member");
   await db().collection("reports").add({
     by: uid,
     target,
     reason,
     note: normalize(req.data?.note).slice(0, 500),
-    chatId: String(req.data?.chatId ?? ""),
+    chatId,
     at: import_firestore.Timestamp.now(),
     status: "open"
   });
@@ -1040,7 +1051,8 @@ var reportUser = onCall(async (req) => {
   const week = import_firestore.Timestamp.fromMillis(Date.now() - 7 * 864e5);
   const recent = await db().collection("reports").where("target", "==", target).where("at", ">=", week).get();
   const reporters = new Set(recent.docs.map((d) => d.data().by));
-  if (reporters.size >= AUTO_BAN_REPORTS || reason === "underage") {
+  if (reason === "underage") await db().doc(`users/${target}`).update({ review: true, reviewReason: "underage", reviewAt: import_firestore.Timestamp.now() });
+  if (reporters.size >= AUTO_BAN_REPORTS) {
     await db().doc(`users/${target}`).update({ banned: true, receiving: false, bannedAt: import_firestore.Timestamp.now(), banReason: "auto_reports" });
   }
   return { ok: true };
@@ -1058,6 +1070,7 @@ var handlers = {
   landPigeon,
   sendMessage,
   markRead,
+  markDelivered,
   startCall,
   answerCall,
   endCall,
@@ -1067,8 +1080,74 @@ var handlers = {
   reportUser
 };
 
+// src/limits.ts
+var import_node_fs4 = require("node:fs");
+var import_node_path4 = require("node:path");
+var CALL_LIMITS = {
+  default: [120, 60],
+  sendMessage: [40, 60],
+  sendPigeon: [10, 60],
+  startCall: [6, 60],
+  reportUser: [10, 3600],
+  blockUser: [30, 3600],
+  initUser: [20, 3600],
+  deleteAccount: [5, 3600],
+  media: [30, 600],
+  avatar: [10, 3600]
+};
+var MEDIA_BYTES_PER_DAY = 300 * 1024 * 1024;
+var Limiter = class {
+  constructor(now = Date.now) {
+    this.now = now;
+  }
+  hits = /* @__PURE__ */ new Map();
+  bytes = /* @__PURE__ */ new Map();
+  /** Records one call and says whether it is within the limit. */
+  allow(uid, name) {
+    const [max, sec] = CALL_LIMITS[name] ?? CALL_LIMITS.default;
+    const key = `${uid}:${name in CALL_LIMITS ? name : "default"}`;
+    const t = this.now();
+    const list = (this.hits.get(key) ?? []).filter((x) => t - x < sec * 1e3);
+    if (list.length >= max) {
+      this.hits.set(key, list);
+      return false;
+    }
+    list.push(t);
+    this.hits.set(key, list);
+    if (this.hits.size > 5e4) this.sweep();
+    return true;
+  }
+  /** Adds an upload to today's total; false when it would go over the daily allowance. */
+  addBytes(uid, n) {
+    const day = new Date(this.now()).toISOString().slice(0, 10);
+    const cur = this.bytes.get(uid);
+    const used = cur?.day === day ? cur.n : 0;
+    if (used + n > MEDIA_BYTES_PER_DAY) return false;
+    this.bytes.set(uid, { day, n: used + n });
+    return true;
+  }
+  sweep() {
+    const t = this.now();
+    for (const [k, v] of this.hits) if (!v.some((x) => t - x < 36e5)) this.hits.delete(k);
+  }
+};
+function guardMediaRoot(root) {
+  try {
+    (0, import_node_fs4.mkdirSync)(root, { recursive: true });
+    const rules = "Options -Indexes -ExecCGI\nRemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phar .pl .py .cgi .shtml\nRemoveType .php .phtml .phar\n";
+    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(root, ".htaccess"), rules);
+    const av = (0, import_node_path4.join)(root, "avatars");
+    (0, import_node_fs4.mkdirSync)(av, { recursive: true });
+    if (!(0, import_node_fs4.existsSync)((0, import_node_path4.join)(av, ".htaccess"))) (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(av, ".htaccess"), rules);
+  } catch {
+  }
+}
+
 // src/server.ts
 (0, import_app.initializeApp)();
+guardMediaRoot(env("MEDIA_DIR", "/tmp/zajel-media"));
+var limiter = new Limiter();
+var slowDown = () => new HttpsError("resource-exhausted", "too_fast");
 var app = (0, import_express.default)();
 app.disable("x-powered-by");
 var r = import_express.default.Router();
@@ -1084,7 +1163,7 @@ async function uidFrom(req) {
 }
 function sendError(res, e) {
   if (e instanceof HttpsError) {
-    const status = e.code === "unauthenticated" ? 401 : e.code === "not-found" ? 404 : 400;
+    const status = e.code === "unauthenticated" ? 401 : e.code === "not-found" ? 404 : e.code === "resource-exhausted" ? 429 : 400;
     res.status(status).json({ error: { code: e.code, message: e.message } });
   } else {
     logger.error("unhandled", e);
@@ -1108,6 +1187,7 @@ r.post("/call/:name", import_express.default.json({ limit: "64kb" }), async (req
     return;
   }
   try {
+    if (uid && !limiter.allow(uid, req.params.name)) throw slowDown();
     const result = await h({ auth: uid ? { uid } : void 0, data: req.body?.data ?? {} });
     res.json({ result: result ?? null });
   } catch (e) {
@@ -1122,14 +1202,15 @@ r.post("/avatar", import_express.default.raw({ type: Object.keys(IMAGE_TYPES), l
   try {
     const uid = await uidFrom(req).catch(() => void 0);
     if (!uid) throw new HttpsError("unauthenticated", "login_required");
+    if (!limiter.allow(uid, "avatar")) throw slowDown();
     const ext = IMAGE_TYPES[String(req.headers["content-type"]).split(";")[0]];
     const body = req.body;
     if (!ext || !Buffer.isBuffer(body) || body.length < 100 || !looksLikeImage(body)) throw new HttpsError("invalid-argument", "bad_photo");
-    const dir2 = (0, import_node_path4.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
-    (0, import_node_fs4.mkdirSync)(dir2, { recursive: true });
-    for (const f of (0, import_node_fs4.readdirSync)(dir2)) (0, import_node_fs4.rmSync)((0, import_node_path4.join)(dir2, f), { force: true });
+    const dir2 = (0, import_node_path5.join)(env("MEDIA_DIR", "/tmp/zajel-media"), "avatars", uid);
+    (0, import_node_fs5.mkdirSync)(dir2, { recursive: true });
+    for (const f of (0, import_node_fs5.readdirSync)(dir2)) (0, import_node_fs5.rmSync)((0, import_node_path5.join)(dir2, f), { force: true });
     const name = `${Date.now()}.${ext}`;
-    (0, import_node_fs4.writeFileSync)((0, import_node_path4.join)(dir2, name), body);
+    (0, import_node_fs5.writeFileSync)((0, import_node_path5.join)(dir2, name), body);
     const url2 = `${env("MEDIA_URL")}/avatars/${uid}/${name}`;
     await (0, import_firestore3.getFirestore)().doc(`profiles/${uid}`).set({ photoUrl: url2 }, { merge: true });
     res.json({ result: { url: url2 } });
@@ -1141,6 +1222,7 @@ r.post("/media", import_express.default.raw({ type: () => true, limit: "20mb" })
   try {
     const uid = await uidFrom(req).catch(() => void 0);
     if (!uid) throw new HttpsError("unauthenticated", "login_required");
+    if (!limiter.allow(uid, "media")) throw slowDown();
     const chatId = String(req.query.chatId ?? "");
     const kind = String(req.query.kind ?? "");
     if (!/^[A-Za-z0-9_-]{6,64}$/.test(chatId) || !MEDIA_KINDS.includes(kind)) throw new HttpsError("invalid-argument", "bad_media");
@@ -1151,6 +1233,7 @@ r.post("/media", import_express.default.raw({ type: () => true, limit: "20mb" })
     if (!Buffer.isBuffer(body) || body.length < 16) throw new HttpsError("invalid-argument", "bad_media");
     const ext = mediaExt(kind, body, String(req.query.name ?? ""), String(req.headers["content-type"] ?? ""));
     if (!ext) throw new HttpsError("invalid-argument", kind === "image" ? "bad_photo" : "bad_file_type");
+    if (!limiter.addBytes(uid, body.length)) throw new HttpsError("resource-exhausted", "media_daily_limit");
     res.json({ result: { url: saveMedia(chatId, ext, body), size: body.length } });
   } catch (e) {
     sendError(res, e);

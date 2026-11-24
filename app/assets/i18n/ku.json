@@ -268,5 +268,11 @@
  "err_bad_file_type": "Ev cureyê pelê nayê şandin.",
  "err_bad_media": "Ev pêvek nehat şandin.",
  "err_bad_photo": "Ev wêne nayê bikaranîn. Yekî din biceribîne.",
- "eta_s": "Di {s} çirkeyan de digihîje"
+ "eta_s": "Di {s} çirkeyan de digihîje",
+ "tick_sent": "Hate şandin",
+ "tick_delivered": "Gihîşt",
+ "tick_read": "Hate xwendin",
+ "err_too_fast": "Hinekî hêdî — tu pir zû dişînî. Piştî deqeyekê dîsa biceribîne.",
+ "err_media_daily_limit": "Te sînorê pelan ê îro bi dawî kir. Sibê dîsa biceribîne.",
+ "err_not_member": "Tu tenê dikarî kesê ku tu pê re diaxivî ragihînî."
 }

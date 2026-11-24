@@ -268,5 +268,11 @@ T = {
 "err_bad_file_type": "无法发送此类型的文件。",
 "err_bad_media": "无法发送此附件。",
 "err_bad_photo": "无法使用这张照片，请换一张。",
-"eta_s": "{s} 秒后到达"
+"eta_s": "{s} 秒后到达",
+"tick_sent": "已发送",
+"tick_delivered": "已送达",
+"tick_read": "已读",
+"err_too_fast": "慢一点——你发送得太快了。请一分钟后再试。",
+"err_media_daily_limit": "你已达到今天的文件上限。请明天再试。",
+"err_not_member": "只能举报正在与你聊天的人。",
 }

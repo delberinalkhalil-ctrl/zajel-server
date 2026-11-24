@@ -268,5 +268,11 @@ T = {
 "err_bad_file_type": "Questo tipo di file non può essere inviato.",
 "err_bad_media": "Impossibile inviare questo allegato.",
 "err_bad_photo": "Impossibile usare questa foto. Provane un'altra.",
-"eta_s": "Arriva tra {s} s"
+"eta_s": "Arriva tra {s} s",
+"tick_sent": "Inviato",
+"tick_delivered": "Consegnato",
+"tick_read": "Letto",
+"err_too_fast": "Rallenta un po': stai inviando molto velocemente. Riprova tra un minuto.",
+"err_media_daily_limit": "Hai raggiunto il limite di file di oggi. Riprova domani.",
+"err_not_member": "Puoi segnalare solo chi è in chat con te.",
 }

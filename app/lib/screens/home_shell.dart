@@ -31,6 +31,8 @@ class _HomeShellState extends State<HomeShell> {
   late final Stream<List<ChatInfo>> _chats = Api.chats();
   late final Stream<Profile> _myProfile = Api.profile(Api.uid);
   StreamSubscription<CallInfo?>? _calls;
+  StreamSubscription<List<ChatInfo>>? _delivered;
+  final _deliveredFor = <String, DateTime>{};
   String? _ringing;
 
   @override
@@ -39,14 +41,29 @@ class _HomeShellState extends State<HomeShell> {
     Push.start();
     if (Cfg.storeEnabled) context.read<Billing>().start();
     _calls = Api.incomingCall().listen(_onCall);
+    _delivered = Api.chats().listen(_markDelivered, onError: (_) {});
     Push.pending.addListener(_onPush);
   }
 
   @override
   void dispose() {
     _calls?.cancel();
+    _delivered?.cancel();
     Push.pending.removeListener(_onPush);
     super.dispose();
+  }
+
+  /// Double grey tick: the other person's new messages have reached this phone.
+  void _markDelivered(List<ChatInfo> chats) {
+    for (final c in chats) {
+      final at = c.lastAt;
+      if (at == null || c.lastFrom == Api.uid || c.unread(Api.uid) == 0) continue;
+      final done = c.deliveredAt(Api.uid);
+      if (done != null && !done.isBefore(at)) continue;
+      if (_deliveredFor[c.id] == at) continue;
+      _deliveredFor[c.id] = at;
+      Api.call('markDelivered', {'chatId': c.id}).ignore();
+    }
   }
 
   void _onCall(CallInfo? c) {

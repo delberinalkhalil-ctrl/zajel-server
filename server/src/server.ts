@@ -22,8 +22,12 @@ import { handlers, pigeonClock, vipExpiry } from './index';
 import { env, HttpsError, logger } from './runtime';
 import { memberChat } from './chats';
 import { MEDIA_AFTER_MESSAGES, MEDIA_KINDS, MediaKind, mediaExt, saveMedia } from './media';
+import { guardMediaRoot, Limiter } from './limits';
 
 initializeApp();
+guardMediaRoot(env('MEDIA_DIR', '/tmp/zajel-media'));
+const limiter = new Limiter();
+const slowDown = () => new HttpsError('resource-exhausted', 'too_fast');
 
 const app = express();
 app.disable('x-powered-by');
@@ -43,7 +47,7 @@ async function uidFrom(req: Request): Promise<string | undefined> {
 
 function sendError(res: Response, e: unknown) {
   if (e instanceof HttpsError) {
-    const status = e.code === 'unauthenticated' ? 401 : e.code === 'not-found' ? 404 : 400;
+    const status = e.code === 'unauthenticated' ? 401 : e.code === 'not-found' ? 404 : e.code === 'resource-exhausted' ? 429 : 400;
     res.status(status).json({ error: { code: e.code, message: e.message } });
   } else {
     logger.error('unhandled', e);
@@ -69,6 +73,7 @@ r.post('/call/:name', express.json({ limit: '64kb' }), async (req, res) => {
     return;
   }
   try {
+    if (uid && !limiter.allow(uid, req.params.name)) throw slowDown();
     const result = await h({ auth: uid ? { uid } : undefined, data: req.body?.data ?? {} });
     res.json({ result: result ?? null });
   } catch (e) {
@@ -86,6 +91,7 @@ r.post('/avatar', express.raw({ type: Object.keys(IMAGE_TYPES), limit: '5mb' }),
   try {
     const uid = await uidFrom(req).catch(() => undefined);
     if (!uid) throw new HttpsError('unauthenticated', 'login_required');
+    if (!limiter.allow(uid, 'avatar')) throw slowDown();
     const ext = IMAGE_TYPES[String(req.headers['content-type']).split(';')[0]];
     const body = req.body as Buffer;
     if (!ext || !Buffer.isBuffer(body) || body.length < 100 || !looksLikeImage(body)) throw new HttpsError('invalid-argument', 'bad_photo');
@@ -110,6 +116,7 @@ r.post('/media', express.raw({ type: () => true, limit: '20mb' }), async (req, r
   try {
     const uid = await uidFrom(req).catch(() => undefined);
     if (!uid) throw new HttpsError('unauthenticated', 'login_required');
+    if (!limiter.allow(uid, 'media')) throw slowDown();
     const chatId = String(req.query.chatId ?? '');
     const kind = String(req.query.kind ?? '') as MediaKind;
     if (!/^[A-Za-z0-9_-]{6,64}$/.test(chatId) || !MEDIA_KINDS.includes(kind)) throw new HttpsError('invalid-argument', 'bad_media');
@@ -120,6 +127,7 @@ r.post('/media', express.raw({ type: () => true, limit: '20mb' }), async (req, r
     if (!Buffer.isBuffer(body) || body.length < 16) throw new HttpsError('invalid-argument', 'bad_media');
     const ext = mediaExt(kind, body, String(req.query.name ?? ''), String(req.headers['content-type'] ?? ''));
     if (!ext) throw new HttpsError('invalid-argument', kind === 'image' ? 'bad_photo' : 'bad_file_type');
+    if (!limiter.addBytes(uid, body.length)) throw new HttpsError('resource-exhausted', 'media_daily_limit');
     res.json({ result: { url: saveMedia(chatId, ext, body), size: body.length } });
   } catch (e) {
     sendError(res, e);

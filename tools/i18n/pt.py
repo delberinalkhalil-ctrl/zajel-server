@@ -268,5 +268,11 @@ T = {
 "err_bad_file_type": "Este tipo de arquivo não pode ser enviado.",
 "err_bad_media": "Não foi possível enviar este anexo.",
 "err_bad_photo": "Não foi possível usar esta foto. Tente outra.",
-"eta_s": "Chega em {s} s"
+"eta_s": "Chega em {s} s",
+"tick_sent": "Enviada",
+"tick_delivered": "Entregue",
+"tick_read": "Lida",
+"err_too_fast": "Mais devagar — você está enviando muito rápido. Tente de novo em um minuto.",
+"err_media_daily_limit": "Você atingiu o limite de arquivos de hoje. Tente amanhã.",
+"err_not_member": "Você só pode denunciar alguém com quem está conversando.",
 }

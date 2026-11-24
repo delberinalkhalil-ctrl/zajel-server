@@ -268,5 +268,11 @@
  "err_bad_file_type": "Bu dosya türü gönderilemez.",
  "err_bad_media": "Bu ek gönderilemedi.",
  "err_bad_photo": "Bu fotoğraf kullanılamadı. Başka bir tane deneyin.",
- "eta_s": "{s} sn içinde varıyor"
+ "eta_s": "{s} sn içinde varıyor",
+ "tick_sent": "Gönderildi",
+ "tick_delivered": "İletildi",
+ "tick_read": "Okundu",
+ "err_too_fast": "Biraz yavaşla — çok hızlı gönderiyorsun. Bir dakika sonra tekrar dene.",
+ "err_media_daily_limit": "Bugünkü dosya sınırına ulaştın. Yarın tekrar dene.",
+ "err_not_member": "Yalnızca sohbet ettiğin birini bildirebilirsin."
 }

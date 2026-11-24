@@ -319,6 +319,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       final msgs = ms.data ?? const <Msg>[];
                       WidgetsBinding.instance.addPostFrameCallback((_) => _markRead(msgs));
                       final seenAt = chat?.readAt(otherId);
+                      final gotAt = chat?.deliveredAt(otherId);
                       return ListView.builder(
                         reverse: true,
                         padding: const EdgeInsets.all(12),
@@ -330,17 +331,23 @@ class _ChatScreenState extends State<ChatScreen> {
                           final main = mine ? m.text : (app.autoTranslate ? translated : m.text);
                           final alt = mine ? (m.tr[other.lang] ?? '') : (app.autoTranslate ? m.text : translated);
                           final showAlt = (app.showOriginal || _orig.contains(m.id)) && alt.isNotEmpty && alt != main;
-                          final seen = mine && i == 0 && seenAt != null && m.at != null && !seenAt.isBefore(m.at!);
+                          final tick = !mine || m.at == null
+                              ? Tick.none
+                              : (seenAt != null && !seenAt.isBefore(m.at!))
+                                  ? Tick.read
+                                  : (gotAt != null && !gotAt.isBefore(m.at!))
+                                      ? Tick.delivered
+                                      : Tick.sent;
                           return _Bubble(
                             mine: mine,
                             media: m.media,
                             text: main,
                             alt: showAlt ? alt : null,
+                            tick: tick,
                             meta: [
                               shortTime(context, m.at),
                               if (m.pigeon) context.t('pigeon_letter'),
                               if (!mine && m.src.isNotEmpty && m.src != me.lang && app.autoTranslate) context.t('translated'),
-                              if (seen) context.t('seen'),
                             ].where((e) => e.isNotEmpty).join(' · '),
                             onToggle: () => setState(() => _orig.contains(m.id) ? _orig.remove(m.id) : _orig.add(m.id)),
                             toggleLabel: context.t(showAlt ? 'hide_original' : 'show_original'),
@@ -404,8 +411,9 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble({required this.mine, this.media, required this.text, required this.alt, required this.meta, required this.onToggle, required this.toggleLabel});
+  const _Bubble({required this.mine, this.media, required this.text, required this.alt, required this.meta, this.tick = Tick.none, required this.onToggle, required this.toggleLabel});
   final bool mine;
+  final Tick tick;
   final MsgMedia? media;
   final String text;
   final String? alt;
@@ -444,6 +452,7 @@ class _Bubble extends StatelessWidget {
               ),
             Row(mainAxisSize: MainAxisSize.min, children: [
               Flexible(child: Text(meta, style: TextStyle(color: fg.withValues(alpha: .7), fontSize: 12))),
+              if (tick != Tick.none) Padding(padding: const EdgeInsetsDirectional.only(start: 4), child: TickIcon(tick: tick, color: fg)),
               if (text.isNotEmpty) TextButton(
                 onPressed: onToggle,
                 style: TextButton.styleFrom(foregroundColor: fg.withValues(alpha: .85), padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32), textStyle: const TextStyle(fontSize: 12)),
@@ -452,6 +461,27 @@ class _Bubble extends StatelessWidget {
             ]),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// Message state for my own messages: sent (one tick), delivered (two grey ticks), read (two gold ticks).
+enum Tick { none, sent, delivered, read }
+
+class TickIcon extends StatelessWidget {
+  const TickIcon({super.key, required this.tick, required this.color});
+  final Tick tick;
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    final label = context.t(tick == Tick.read ? 'tick_read' : tick == Tick.delivered ? 'tick_delivered' : 'tick_sent');
+    return Semantics(
+      label: label,
+      child: Icon(
+        tick == Tick.sent ? Icons.done : Icons.done_all,
+        size: 16,
+        color: tick == Tick.read ? const Color(0xFFFFD77A) : color.withValues(alpha: .7),
       ),
     );
   }

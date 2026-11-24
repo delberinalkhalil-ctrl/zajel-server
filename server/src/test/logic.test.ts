@@ -97,3 +97,19 @@ test('media: links must point to this chat', () => {
   assert.equal(cleanName('../../etc/passwd'), 'passwd');
   assert.equal(cleanName('my "report" <v2>.pdf'), 'my report v2.pdf');
 });
+
+test('limits: one person cannot flood calls, and uploads are capped per day', async () => {
+  const { Limiter, CALL_LIMITS, MEDIA_BYTES_PER_DAY } = await import('../limits');
+  let t = 1_000_000;
+  const l = new Limiter(() => t);
+  const [max] = CALL_LIMITS.sendMessage;
+  for (let i = 0; i < max; i++) assert.equal(l.allow('a', 'sendMessage'), true);
+  assert.equal(l.allow('a', 'sendMessage'), false);
+  assert.equal(l.allow('b', 'sendMessage'), true, 'other people are not affected');
+  t += 61_000;
+  assert.equal(l.allow('a', 'sendMessage'), true, 'the window slides');
+  assert.equal(l.addBytes('a', MEDIA_BYTES_PER_DAY - 10), true);
+  assert.equal(l.addBytes('a', 100), false);
+  t += 864e5;
+  assert.equal(l.addBytes('a', 100), true, 'a new day starts fresh');
+});

@@ -128,6 +128,7 @@ class ChatInfo {
   String other(String me) => members.firstWhere((m) => m != me, orElse: () => '');
   int unread(String uid) => ((d['unread'] as Map?)?[uid] as num?)?.toInt() ?? 0;
   DateTime? readAt(String uid) => _ts((d['readAt'] as Map?)?[uid]);
+  DateTime? deliveredAt(String uid) => _ts((d['deliveredAt'] as Map?)?[uid]);
   Map<String, dynamic> get last => (d['last'] as Map?)?.cast<String, dynamic>() ?? const {};
   String lastText(String lang) => _sm(last['tr'])[lang] ?? _s(last['text']);
   String get lastFrom => _s(last['from']);

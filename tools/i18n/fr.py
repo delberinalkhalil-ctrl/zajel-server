@@ -268,5 +268,11 @@ T = {
 "err_bad_file_type": "Ce type de fichier ne peut pas être envoyé.",
 "err_bad_media": "Cette pièce jointe n'a pas pu être envoyée.",
 "err_bad_photo": "Cette photo ne peut pas être utilisée. Essayez-en une autre.",
-"eta_s": "Arrive dans {s} s"
+"eta_s": "Arrive dans {s} s",
+"tick_sent": "Envoyé",
+"tick_delivered": "Distribué",
+"tick_read": "Lu",
+"err_too_fast": "Doucement — vous envoyez très vite. Réessayez dans une minute.",
+"err_media_daily_limit": "Vous avez atteint la limite de fichiers pour aujourd'hui. Réessayez demain.",
+"err_not_member": "Vous ne pouvez signaler qu'une personne avec qui vous discutez.",
 }

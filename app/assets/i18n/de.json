@@ -268,5 +268,11 @@
  "err_bad_file_type": "Dieser Dateityp kann nicht gesendet werden.",
  "err_bad_media": "Dieser Anhang konnte nicht gesendet werden.",
  "err_bad_photo": "Dieses Foto konnte nicht verwendet werden. Versuch ein anderes.",
- "eta_s": "Ankunft in {s} Sek."
+ "eta_s": "Ankunft in {s} Sek.",
+ "tick_sent": "Gesendet",
+ "tick_delivered": "Zugestellt",
+ "tick_read": "Gelesen",
+ "err_too_fast": "Etwas langsamer – du sendest sehr schnell. Versuch es in einer Minute noch einmal.",
+ "err_media_daily_limit": "Du hast das Tageslimit für Dateien erreicht. Versuch es morgen wieder.",
+ "err_not_member": "Du kannst nur Personen melden, mit denen du chattest."
 }

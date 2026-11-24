@@ -268,5 +268,11 @@
  "err_bad_file_type": "This type of file cannot be sent.",
  "err_bad_media": "This attachment could not be sent.",
  "err_bad_photo": "This photo could not be used. Try another one.",
- "eta_s": "Arrives in {s} s"
+ "eta_s": "Arrives in {s} s",
+ "tick_sent": "Sent",
+ "tick_delivered": "Delivered",
+ "tick_read": "Read",
+ "err_too_fast": "Slow down a little — you're sending very fast. Try again in a minute.",
+ "err_media_daily_limit": "You've reached today's limit for files. Try again tomorrow.",
+ "err_not_member": "You can only report someone you're chatting with."
 }

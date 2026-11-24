@@ -35,8 +35,13 @@ export const reportUser = onCall(async req => {
   const reason = String(req.data?.reason ?? '');
   if (!target || target === uid) bad('bad_user');
   if (!REASONS.includes(reason)) bad('bad_reason');
+  // Only someone who actually talked with the person can report them, so reports cannot be used to ban strangers.
+  const chatId = String(req.data?.chatId ?? '');
+  const chat = chatId ? (await db().doc(`chats/${chatId}`).get()).data() : undefined;
+  const members = (chat?.members ?? []) as string[];
+  if (!members.includes(uid) || !members.includes(target)) bad('not_member');
   await db().collection('reports').add({
-    by: uid, target, reason, note: normalize(req.data?.note).slice(0, 500), chatId: String(req.data?.chatId ?? ''),
+    by: uid, target, reason, note: normalize(req.data?.note).slice(0, 500), chatId,
     at: Timestamp.now(), status: 'open',
   });
   await db().doc(`users/${uid}`).update({ blocked: FieldValue.arrayUnion(target) });
@@ -44,7 +49,9 @@ export const reportUser = onCall(async req => {
   const week = Timestamp.fromMillis(Date.now() - 7 * 864e5);
   const recent = await db().collection('reports').where('target', '==', target).where('at', '>=', week).get();
   const reporters = new Set(recent.docs.map(d => d.data().by));
-  if (reporters.size >= AUTO_BAN_REPORTS || reason === 'underage') {
+  // "Possibly under 18" reports go to the top of the review queue; a single report never bans anyone by itself.
+  if (reason === 'underage') await db().doc(`users/${target}`).update({ review: true, reviewReason: 'underage', reviewAt: Timestamp.now() });
+  if (reporters.size >= AUTO_BAN_REPORTS) {
     await db().doc(`users/${target}`).update({ banned: true, receiving: false, bannedAt: Timestamp.now(), banReason: 'auto_reports' });
   }
   return { ok: true };
