@@ -21,6 +21,9 @@ export async function roleOf(uid: string): Promise<{ role: Role | null; email: s
   const email = (user?.email ?? '').toLowerCase();
   const envAdmins = env('ADMIN_EMAILS', 'delberinalkhalil@gmail.com').toLowerCase().split(/[,\s]+/).filter(Boolean);
   if (email && user?.emailVerified === true && envAdmins.includes(email)) return { role: 'admin', email };
+  // The owner's account, pinned by its id (it signs in with a password and an unverified email).
+  const ownerUids = env('ADMIN_UIDS', '8oPV1gDACzg2khRI1jdPM69Wpom1').split(/[,\s]+/).filter(Boolean);
+  if (ownerUids.includes(uid)) return { role: 'admin', email };
   const r = doc.data()?.role as Role | undefined;
   return { role: r && r in RANK ? r : null, email };
 }
