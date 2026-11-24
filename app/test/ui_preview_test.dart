@@ -122,7 +122,7 @@ void main() {
       // The translations and fonts load from real files: let that I/O finish before settling.
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 500)));
       await tester.pumpAndSettle();
-      expect(find.byType(LetterCard), findsOneWidget);
+      expect(find.byType(LetterCard), findsNWidgets(2));
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/preview_$lang.png'));
     });
   }
