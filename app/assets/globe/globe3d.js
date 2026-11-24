@@ -395,6 +395,7 @@ window.createGlobe3D = function () {
     sunDir.copy(realSun(now)); sun.position.copy(sunDir).multiplyScalar(10);
     fill.position.copy(rig.pos).addScaledVector(right, -1.6).addScaledVector(rig.up, 1.4).setLength(10);
     clouds.rotation.y = now * .000006;
+    clouds.material.visible = st.effects !== 'light' && st.effects !== 'off';
     R.render(scene, cam);
   }
 

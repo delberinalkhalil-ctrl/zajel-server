@@ -30,6 +30,9 @@ class _HomeShellState extends State<HomeShell> {
   late final Stream<List<Pigeon>> _inbox = Api.inbox();
   late final Stream<List<ChatInfo>> _chats = Api.chats();
   late final Stream<Profile> _myProfile = Api.profile(Api.uid);
+  late final Stream<Map<String, dynamic>?> _announce = Api.announcement();
+  String _hiddenAnnouncement = '';
+  Object? _shownNotice;
   StreamSubscription<CallInfo?>? _calls;
   StreamSubscription<List<ChatInfo>>? _delivered;
   final _deliveredFor = <String, DateTime>{};
@@ -106,9 +109,31 @@ class _HomeShellState extends State<HomeShell> {
   static int get meTab => Cfg.storeEnabled ? 4 : 3;
   void go(int i) => setState(() => _tab = i);
 
+  /// Shows a moderator's warning once, then tells the server it was seen.
+  void _maybeShowNotice(Me me) {
+    final n = me.notice;
+    if (n == null || n['seen'] == true || identical(_shownNotice, n['at']) || _shownNotice == n['at']) return;
+    _shownNotice = n['at'];
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final note = '${n['note'] ?? ''}';
+      await showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.gpp_maybe_outlined, color: kGold, size: 40),
+          title: Text(c.t(n['kind'] == 'restrict' ? 'notice_restrict_t' : 'notice_warn_t')),
+          content: Text([c.t('notice_body'), if (note.isNotEmpty) '«$note»'].join('\n\n')),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(c.t('ok')))],
+        ),
+      );
+      Api.call('ackNotice').ignore();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final me = context.me;
+    _maybeShowNotice(me);
     final pages = [
       SkyScreen(onStore: () => go(storeTab)),
       const InboxScreen(),
@@ -137,7 +162,22 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(width: 12),
         ],
       ),
-      body: IndexedStack(index: _tab, children: pages),
+      body: Column(children: [
+        StreamBuilder<Map<String, dynamic>?>(
+          stream: _announce,
+          builder: (_, s) {
+            final d = s.data;
+            if (d == null) return const SizedBox.shrink();
+            final tr = d['tr'] is Map ? Map<String, dynamic>.from(d['tr'] as Map) : const <String, dynamic>{};
+            final text = '${tr[context.lang] ?? d['text'] ?? ''}';
+            if (text.isEmpty || text == _hiddenAnnouncement) return const SizedBox.shrink();
+            return NoticeBanner(icon: Icons.campaign_outlined, text: text, onClose: () => setState(() => _hiddenAnnouncement = text));
+          },
+        ),
+        if (me.restricted)
+          NoticeBanner(icon: Icons.lock_clock_outlined, color: kRed, text: context.t('restricted_until', {'date': shortDate(context, me.restrictedUntil!)})),
+        Expanded(child: IndexedStack(index: _tab, children: pages)),
+      ]),
       bottomNavigationBar: StreamBuilder<List<Pigeon>>(
         stream: _inbox,
         builder: (_, inbox) => StreamBuilder<List<ChatInfo>>(

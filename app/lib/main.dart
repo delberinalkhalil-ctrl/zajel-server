@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'app.dart';
 import 'core/app_state.dart';
 import 'core/billing.dart';
+import 'core/errors.dart';
 import 'core/lock.dart';
 import 'core/models.dart';
 import 'core/session.dart';
@@ -20,6 +21,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
+  ErrorReporter.init();
   final app = AppState();
   await Future.wait([app.init(), LockService.instance.load(), Countries.load()]);
   runApp(MultiProvider(

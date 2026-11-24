@@ -1,5 +1,5 @@
 import { onCall } from './runtime';
-import { bad, db, fail, FieldValue, getUser, isVip, requireUid, Timestamp, UserDoc } from './common';
+import { bad, checkRestricted, db, fail, FieldValue, getUser, isVip, requireUid, Timestamp, UserDoc } from './common';
 import { checkText, MAX_MESSAGE_LEN, normalize } from './moderation';
 import { pushTo } from './notify';
 import { translateAll } from './translate';
@@ -43,11 +43,17 @@ export const sendMessage = onCall(async req => {
   const [me, them] = await Promise.all([getUser(uid), db().doc(`users/${other}`).get().then(s => s.data() as UserDoc | undefined)]);
   if (!them) fail('user_gone');
   if ((them!.blocked ?? []).includes(uid) || (me.blocked ?? []).includes(other)) fail('blocked');
+  checkRestricted(me);
+  const replyTo = await readReply(ref, req.data?.replyTo);
 
   const { src, tr } = text ? await translateAll(text, [me.lang, them!.lang], me.lang) : { src: me.lang, tr: {} as Record<string, string> };
   const now = Timestamp.now();
   const label = media ? mediaLabel(media.kind as MediaKind, String(media.name ?? '')) : '';
-  await ref.collection('messages').add({ from: uid, text, src, tr, at: now, ...(media ? { media } : {}) });
+  const ttlH = Number(c.ttlH) || 0;
+  await ref.collection('messages').add({
+    from: uid, text, src, tr, at: now, ...(media ? { media } : {}), ...(replyTo ? { replyTo } : {}),
+    ...(ttlH ? { expireAt: Timestamp.fromMillis(now.toMillis() + ttlH * 3600e3) } : {}),
+  });
   const lastText = media ? (text ? `${label} ${text}` : label) : text;
   const lastTr = media && text ? Object.fromEntries(Object.entries(tr).map(([k, v]) => [k, `${label} ${v}`])) : tr;
   await ref.update({
@@ -55,9 +61,61 @@ export const sendMessage = onCall(async req => {
     [`unread.${other}`]: FieldValue.increment(1), [`unread.${uid}`]: 0,
   });
   await db().doc(`users/${uid}`).update({ lastActive: now });
-  await pushTo(other, { title: me.name, body: lastTr[them!.lang] ?? lastText, data: { type: 'chat', chatId: ref.id } });
+  await pushTo(other, { title: me.name, body: lastTr[them!.lang] ?? lastText, data: { type: 'chat', chatId: ref.id } }, 'message');
   return { ok: true, src };
 });
+
+/** The quoted message of a reply: must be in the same chat; only a short excerpt is stored. */
+async function readReply(chatRef: FirebaseFirestore.DocumentReference, v: unknown) {
+  if (typeof v !== 'string' || !/^[A-Za-z0-9]{10,40}$/.test(v)) return null;
+  const m = (await chatRef.collection('messages').doc(v).get()).data();
+  if (!m || m.deleted) return null;
+  return { id: v, from: m.from as string, text: String(m.text ?? '').slice(0, 140), ...(m.media ? { media: m.media.kind } : {}) };
+}
+
+/** Deletes one of your own messages for both people. The attachment link is removed as well. */
+export const deleteMessage = onCall(async req => {
+  const uid = requireUid(req);
+  const { ref } = await memberChat(uid, String(req.data?.chatId ?? ''));
+  const id = String(req.data?.id ?? '');
+  if (!/^[A-Za-z0-9]{10,40}$/.test(id)) bad('bad_message');
+  const mref = ref.collection('messages').doc(id);
+  const m = (await mref.get()).data();
+  if (!m || m.from !== uid || m.pigeon || m.system) fail('not_yours');
+  await mref.update({ deleted: true, text: '', tr: {}, media: FieldValue.delete(), replyTo: FieldValue.delete() });
+  return { ok: true };
+});
+
+export const TTL_HOURS = [0, 24, 168];
+
+/** Disappearing messages: new messages in the chat are removed after 24 hours or 7 days. 0 turns it off. */
+export const setChatTtl = onCall(async req => {
+  const uid = requireUid(req);
+  const { ref, c } = await memberChat(uid, String(req.data?.chatId ?? ''));
+  if (c.blocked) fail('blocked');
+  const hours = Number(req.data?.hours);
+  if (!TTL_HOURS.includes(hours)) bad('bad_setting');
+  if ((Number(c.ttlH) || 0) === hours) return { ok: true };
+  const now = Timestamp.now();
+  await ref.update({ ttlH: hours, ttlBy: uid, updatedAt: now, ...(hours ? { ttlEver: true } : {}) });
+  await ref.collection('messages').add({ from: uid, text: '', tr: {}, at: now, system: 'ttl', hours });
+  return { ok: true };
+});
+
+/** Hourly: removes messages whose disappearing time has passed, in chats that use it. */
+export async function purgeExpiredMessages() {
+  const chats = await db().collection('chats').where('ttlEver', '==', true).limit(500).get();
+  let n = 0;
+  for (const c of chats.docs) {
+    const old = await c.ref.collection('messages').where('expireAt', '<=', Timestamp.now()).limit(400).get();
+    if (old.empty) continue;
+    const b = db().batch();
+    old.docs.forEach(d => b.delete(d.ref));
+    await b.commit();
+    n += old.size;
+  }
+  return n;
+}
 
 /** Marks that the app has received the chat's latest messages (the double grey tick). */
 export const markDelivered = onCall(async req => {

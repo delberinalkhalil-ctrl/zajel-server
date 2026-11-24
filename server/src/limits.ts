@@ -15,6 +15,11 @@ export const CALL_LIMITS: Record<string, [number, number]> = {
   deleteAccount: [5, 3600],
   media: [30, 600],
   avatar: [10, 3600],
+  logError: [30, 3600],
+  deleteMessage: [60, 600],
+  setChatTtl: [20, 3600],
+  countryFact: [60, 3600],
+  adminChat: [60, 3600],
 };
 /** Bytes of photos, voice messages and files one person may upload per day. */
 export const MEDIA_BYTES_PER_DAY = 300 * 1024 * 1024;

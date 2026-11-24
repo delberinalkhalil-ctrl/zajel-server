@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>زاجل · لوحة الإدارة</title>
+<style>
+  :root { --night:#060D22; --deep:#0A1530; --panel:#0F1C3F; --panel2:#16264F; --muted:#A9B4D0; --parch:#F6EEDC; --gold:#E8B84A; --red:#C8323E; --ok:#4FBF8A; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--night); color:var(--parch); font: 15px/1.6 system-ui, "Segoe UI", Tahoma, sans-serif; }
+  header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--deep); border-bottom:1px solid #1f2d55; position:sticky; top:0; z-index:5; }
+  header h1 { font-size:18px; margin:0; color:var(--gold); }
+  header .sp { flex:1; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; }
+  nav button { background:none; border:1px solid transparent; color:var(--muted); padding:6px 12px; border-radius:999px; cursor:pointer; font:inherit; }
+  nav button.on { color:var(--night); background:var(--gold); }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .card { background:var(--panel); border:1px solid #22325e; border-radius:14px; padding:16px; margin-bottom:16px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .kpi { background:var(--panel); border-radius:12px; padding:14px; border:1px solid #22325e; }
+  .kpi b { display:block; font-size:26px; color:var(--gold); }
+  .kpi span { color:var(--muted); font-size:13px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:right; padding:8px 6px; border-bottom:1px solid #1f2d55; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:13px; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; background:var(--panel2); color:var(--muted); }
+  .tag.red { background:#4a1820; color:#ff9aa3; } .tag.gold { background:#4a3a10; color:var(--gold); } .tag.ok { background:#123b2a; color:#8fe3b9; }
+  button.b, select, input, textarea { font:inherit; border-radius:10px; border:1px solid #2a3b6c; background:var(--deep); color:var(--parch); padding:7px 12px; }
+  button.b { cursor:pointer; background:var(--panel2); }
+  button.b.gold { background:var(--gold); color:var(--night); border-color:var(--gold); }
+  button.b.red { background:var(--red); border-color:var(--red); }
+  button.b:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .muted { color:var(--muted); }
+  .login { max-width:380px; margin:10vh auto; }
+  .login input { width:100%; margin-bottom:10px; }
+  .msgs { max-height:60vh; overflow:auto; display:flex; flex-direction:column; gap:6px; }
+  .msg { max-width:75%; padding:8px 12px; border-radius:12px; background:var(--panel2); }
+  .msg.a { align-self:flex-start; background:#2a2140; } .msg.sys { align-self:center; background:none; color:var(--muted); font-size:13px; }
+  .msg small { display:block; color:var(--muted); font-size:11px; }
+  dialog { background:var(--panel); color:var(--parch); border:1px solid #2a3b6c; border-radius:16px; width:min(720px,94vw); }
+  dialog::backdrop { background:#000a; }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--gold); color:var(--night); padding:8px 16px; border-radius:999px; display:none; }
+  pre { white-space:pre-wrap; word-break:break-word; font-size:12px; color:var(--muted); margin:4px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🕊️ زاجل · الإدارة</h1>
+  <nav id="nav" hidden></nav>
+  <span class="sp"></span>
+  <span id="who" class="muted"></span>
+  <button class="b" id="out" hidden>خروج</button>
+</header>
+<main id="app">
+  <div class="card login" id="login">
+    <h2 style="margin-top:0">تسجيل الدخول</h2>
+    <p class="muted">للمشرفين فقط. استخدم حساب زاجل نفسه.</p>
+    <input id="email" type="email" placeholder="البريد الإلكتروني" autocomplete="username">
+    <input id="pass" type="password" placeholder="كلمة المرور" autocomplete="current-password">
+    <div class="row"><button class="b gold" id="go">دخول</button><button class="b" id="google">الدخول بحساب Google</button></div>
+    <p id="lerr" style="color:#ff9aa3"></p>
+  </div>
+</main>
+<dialog id="dlg"><div id="dlgBody"></div><div class="row" style="margin-top:12px"><button class="b" onclick="dlg.close()">إغلاق</button></div></dialog>
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+
+// Public Firebase identifiers (not secrets): every call is checked on the server against the caller's role.
+const fb = initializeApp({ apiKey: 'AIzaSyBROvxHfUPHuFepxC6UzuWwRq0IHk-TId8', authDomain: 'zajel-9766b.firebaseapp.com', projectId: 'zajel-9766b' });
+const auth = getAuth(fb);
+const API = '/zajel-api/call/';
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const when = t => t ? new Date(t).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2500); };
+const REASONS = { spam: 'إزعاج', scam: 'احتيال', sexual: 'محتوى جنسي', harassment: 'تحرّش', underage: 'قد يكون قاصراً', fake: 'حساب مزيّف', other: 'أخرى' };
+const ACTION_AR = { warn: 'تحذير', restrict: 'تقييد', unrestrict: 'رفع التقييد', suspend: 'إيقاف', unsuspend: 'إعادة تفعيل', dismiss: 'رفض البلاغ', clear_review: 'إزالة علامة المراجعة', view_chat: 'فتح محادثة', set_role: 'تغيير صلاحية', announce: 'إعلان' };
+const RANK = { reviewer: 1, mod: 2, admin: 3 };
+let role = null;
+
+async function call(name, data = {}) {
+  const token = await auth.currentUser.getIdToken();
+  const r = await fetch(API + name, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify({ data }) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error?.message || ('HTTP ' + r.status));
+  return j.result;
+}
+
+$('#go').onclick = async () => {
+  $('#lerr').textContent = '';
+  try { await signInWithEmailAndPassword(auth, $('#email').value.trim(), $('#pass').value); }
+  catch (e) { $('#lerr').textContent = 'تعذّر الدخول: ' + e.code; }
+};
+$('#google').onclick = async () => {
+  $('#lerr').textContent = '';
+  try { await signInWithPopup(auth, new GoogleAuthProvider()); }
+  catch (e) { $('#lerr').textContent = 'تعذّر الدخول: ' + e.code; }
+};
+$('#out').onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async u => {
+  if (!u) { role = null; $('#nav').hidden = true; $('#out').hidden = true; $('#who').textContent = ''; $('#app').innerHTML = ''; $('#app').append(loginCard); return; }
+  try {
+    const me = await call('adminMe');
+    if (!me.role) { $('#app').innerHTML = `<div class="card login"><h2>لا توجد صلاحية</h2><p class="muted">${esc(me.email)} ليس مشرفاً.</p><button class="b" id="o2">خروج</button></div>`; $('#o2').onclick = () => signOut(auth); return; }
+    role = me.role;
+    $('#who').textContent = me.email + ' · ' + ({ admin: 'مدير', mod: 'مشرف', reviewer: 'مراجع' })[role];
+    $('#out').hidden = false;
+    buildNav();
+    show('stats');
+  } catch (e) { $('#app').innerHTML = `<div class="card">خطأ: ${esc(e.message)}</div>`; }
+});
+const loginCard = $('#login');
+
+const PAGES = [
+  ['stats', 'الإحصاءات', 'reviewer'], ['reports', 'البلاغات', 'reviewer'], ['user', 'بحث عن حساب', 'reviewer'],
+  ['log', 'سجل الإجراءات', 'mod'], ['announce', 'إعلان', 'admin'], ['errors', 'الأخطاء والنسخ', 'admin'], ['roles', 'الصلاحيات', 'admin'],
+];
+function buildNav() {
+  const n = $('#nav'); n.innerHTML = ''; n.hidden = false;
+  for (const [id, label, min] of PAGES) if (RANK[role] >= RANK[min]) {
+    const b = document.createElement('button'); b.textContent = label; b.dataset.p = id; b.onclick = () => show(id); n.append(b);
+  }
+}
+async function show(p) {
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  const app = $('#app'); app.innerHTML = '<p class="muted">جارٍ التحميل…</p>';
+  try { app.innerHTML = await VIEWS[p](); WIRE[p]?.(); }
+  catch (e) { app.innerHTML = `<div class="card">خطأ: ${esc(e.message)}</div>`; }
+}
+
+const VIEWS = {
+  async stats() {
+    const s = await call('adminStats');
+    const k = (v, l) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
+    return `<div class="kpis">
+      ${k(s.users, 'كل الحسابات')}${k(s.active24h, 'نشِطون اليوم')}${k(s.active7d, 'نشِطون هذا الأسبوع')}
+      ${k(s.pigeons24h, 'زواجل اليوم')}${k(s.pigeons7d, 'زواجل هذا الأسبوع')}${k(s.catchRate7d + '%', 'نسبة الالتقاط (٧ أيام)')}
+      ${k(s.chats, 'محادثات')}${k(s.openReports, 'بلاغات مفتوحة')}${k(s.review, 'بانتظار مراجعة')}${k(s.banned, 'حسابات موقوفة')}${k(s.errors24h, 'أخطاء اليوم')}
+    </div>`;
+  },
+  async reports() {
+    const st = window._rs || 'open';
+    const r = await call('adminReports', { status: st });
+    const opt = ['open', 'actioned', 'dismissed', 'all'].map(v => `<option value="${v}" ${v === st ? 'selected' : ''}>${({ open: 'مفتوحة', actioned: 'تمّ اتخاذ إجراء', dismissed: 'مرفوضة', all: 'الكل' })[v]}</option>`).join('');
+    const review = r.review.length ? `<div class="card"><h3 style="margin-top:0">⚠️ بانتظار مراجعة عاجلة</h3><table>${r.review.map(u => `<tr><td>${esc(u.name)} <span class="muted">${esc(u.country)}</span></td><td><span class="tag red">${esc(REASONS[u.reason] || u.reason)}</span></td><td>${when(u.at)}</td><td><button class="b" data-user="${u.uid}">فتح الحساب</button></td></tr>`).join('')}</table></div>` : '';
+    return `${review}<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">البلاغات</h3><select id="rs">${opt}</select></div>
+      <table><tr><th>المُبلَّغ عنه</th><th>السبب</th><th>من</th><th>الوقت</th><th>الحالة</th><th></th></tr>
+      ${r.reports.map(x => `<tr>
+        <td><a href="#" data-user="${x.target.uid}" style="color:var(--gold)">${esc(x.target.name)}</a> <span class="muted">${esc(x.target.country)}</span>${x.weekCount > 1 ? ` <span class="tag red">${x.weekCount} بلاغات هذا الأسبوع</span>` : ''}
+          ${x.note ? `<pre>${esc(x.note)}</pre>` : ''}</td>
+        <td><span class="tag ${x.reason === 'underage' ? 'red' : 'gold'}">${esc(REASONS[x.reason] || x.reason)}</span></td>
+        <td>${esc(x.by.name)}</td><td>${when(x.at)}</td><td><span class="tag">${esc(x.status)}</span></td>
+        <td class="row">${RANK[role] >= 2 && x.chatId ? `<button class="b" data-chat="${x.id}">المحادثة</button>` : ''}${RANK[role] >= 2 ? `<button class="b gold" data-act="${x.id}" data-uid="${x.target.uid}">إجراء</button>` : ''}</td>
+      </tr>`).join('') || '<tr><td colspan="6" class="muted">لا توجد بلاغات.</td></tr>'}</table></div>`;
+  },
+  async user() {
+    return `<div class="card"><div class="row"><input id="uid" placeholder="معرّف الحساب (uid)" style="flex:1"><button class="b gold" id="find">بحث</button></div><div id="uout"></div></div>`;
+  },
+  async log() {
+    const r = await call('adminLog');
+    return `<div class="card"><h3 style="margin-top:0">سجل الإجراءات</h3><table><tr><th>الوقت</th><th>المشرف</th><th>الإجراء</th><th>تفاصيل</th></tr>
+      ${r.rows.map(x => `<tr><td>${when(x.at)}</td><td>${esc(x.email)}</td><td><span class="tag gold">${esc(ACTION_AR[x.action] || x.action)}</span></td><td class="muted">${esc([x.target, x.reportId, x.note, x.days && x.days + ' يوم', x.role, x.text].filter(Boolean).join(' · '))}</td></tr>`).join('')}</table></div>`;
+  },
+  async announce() {
+    return `<div class="card"><h3 style="margin-top:0">إعلان داخل التطبيق</h3><p class="muted">يظهر شريطاً أعلى التطبيق ويُترجم تلقائياً لكل اللغات. اتركه فارغاً لإخفاء الإعلان الحالي.</p>
+      <textarea id="atext" rows="3" style="width:100%" maxlength="200"></textarea>
+      <div class="row" style="margin-top:8px"><label>المدة <select id="adays">${[1, 3, 7, 14, 30].map(d => `<option value="${d}" ${d === 3 ? 'selected' : ''}>${d} يوم</option>`).join('')}</select></label><button class="b gold" id="asend">نشر</button></div></div>`;
+  },
+  async errors() {
+    const r = await call('adminErrors');
+    return `<div class="card"><h3 style="margin-top:0">النسخ الاحتياطية</h3>${r.backups.length ? `<table>${r.backups.map(b => `<tr><td>${esc(b.name)}</td><td>${(b.bytes / 1024).toFixed(0)} KB</td><td>${when(b.at)}</td></tr>`).join('')}</table>` : '<p class="muted">لا توجد نسخ بعد؛ تُنشأ يومياً بعد الساعة 2 فجراً بتوقيت UTC.</p>'}</div>
+      <div class="card"><h3 style="margin-top:0">آخر الأخطاء</h3><table><tr><th>الوقت</th><th>المصدر</th><th>الرسالة</th></tr>
+      ${r.rows.map(x => `<tr><td>${when(x.at)}</td><td><span class="tag ${x.source === 'server' ? 'red' : ''}">${esc(x.source)}</span> <span class="muted">${esc(x.where)} ${esc(x.ver || '')}</span></td><td>${esc(x.msg)}${x.stack ? `<details><summary class="muted">التفاصيل</summary><pre>${esc(x.stack)}</pre></details>` : ''}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">لا أخطاء 🎉</td></tr>'}</table></div>`;
+  },
+  async roles() {
+    const r = await call('adminRoles');
+    return `<div class="card"><h3 style="margin-top:0">الصلاحيات</h3>
+      <p class="muted">مراجع: يرى البلاغات والإحصاءات · مشرف: يفتح المحادثات المُبلَّغ عنها ويتخذ إجراءات · مدير: كل شيء.</p>
+      <table>${r.rows.map(x => `<tr><td>${esc(x.email)}</td><td><span class="tag gold">${esc(x.role)}</span></td><td><button class="b" data-rm="${esc(x.email)}">إزالة</button></td></tr>`).join('')}</table>
+      <div class="row" style="margin-top:10px"><input id="remail" type="email" placeholder="البريد الإلكتروني لحساب زاجل" style="flex:1">
+      <select id="rrole"><option value="reviewer">مراجع</option><option value="mod">مشرف</option><option value="admin">مدير</option></select><button class="b gold" id="radd">إضافة</button></div></div>`;
+  },
+};
+
+function openDlg(html) { $('#dlgBody').innerHTML = html; dlg.showModal(); }
+
+async function userCard(uid) {
+  const u = await call('adminUser', { uid });
+  const st = u.banned ? '<span class="tag red">موقوف</span>' : u.restrictedUntil && u.restrictedUntil > Date.now() ? `<span class="tag gold">مقيّد حتى ${when(u.restrictedUntil)}</span>` : '<span class="tag ok">نشط</span>';
+  return `<h3 style="margin-top:0">${esc(u.name)} <span class="muted">${esc(u.country)}</span> ${st}${u.review ? ' <span class="tag red">بانتظار مراجعة</span>' : ''}</h3>
+    <p class="muted">انضم ${when(u.createdAt)} · آخر نشاط ${when(u.lastActive)} · تحذيرات: ${u.warnings} · اللغة: ${esc(u.lang)}</p>
+    <p class="muted" style="font-size:12px">${esc(uid)}</p>
+    <table>${u.reports.map(r => `<tr><td>${esc(REASONS[r.reason] || r.reason)}</td><td>${when(r.at)}</td><td><span class="tag">${esc(r.status)}</span></td></tr>`).join('')}</table>
+    ${RANK[role] >= 2 ? actionForm(uid, '') : ''}`;
+}
+function actionForm(uid, reportId) {
+  return `<div class="card" style="margin-top:12px"><div class="row">
+    <select id="aact"><option value="warn">تحذير</option><option value="restrict">تقييد مؤقت</option><option value="suspend">إيقاف الحساب</option><option value="unrestrict">رفع التقييد</option><option value="unsuspend">إعادة تفعيل</option><option value="clear_review">إزالة علامة المراجعة</option>${reportId ? '<option value="dismiss">رفض البلاغ دون إجراء</option>' : ''}</select>
+    <select id="adays2" title="مدة التقييد">${[1, 3, 7, 14, 30].map(d => `<option value="${d}">${d} يوم</option>`).join('')}</select>
+    <input id="anote" placeholder="ملاحظة (تظهر للمستخدم مع التحذير)" style="flex:1" maxlength="300">
+    <button class="b red" id="ado" data-uid="${uid}" data-rep="${reportId}">تنفيذ</button></div></div>`;
+}
+function wireAction() {
+  const b = $('#ado'); if (!b) return;
+  b.onclick = async () => {
+    const action = $('#aact').value;
+    if (action === 'suspend' && !confirm('إيقاف هذا الحساب؟')) return;
+    b.disabled = true;
+    try { await call('adminAction', { uid: b.dataset.uid, reportId: b.dataset.rep || undefined, action, days: +$('#adays2').value, note: $('#anote').value }); toast('تمّ'); dlg.close(); show('reports'); }
+    catch (e) { toast('خطأ: ' + e.message); b.disabled = false; }
+  };
+}
+
+const WIRE = {
+  reports() {
+    $('#rs').onchange = e => { window._rs = e.target.value; show('reports'); };
+    document.querySelectorAll('[data-user]').forEach(a => a.onclick = async e => { e.preventDefault(); openDlg('…'); $('#dlgBody').innerHTML = await userCard(a.dataset.user); wireAction(); });
+    document.querySelectorAll('[data-act]').forEach(a => a.onclick = () => { openDlg('<h3 style="margin-top:0">إجراء على البلاغ</h3>' + actionForm(a.dataset.uid, a.dataset.act)); wireAction(); });
+    document.querySelectorAll('[data-chat]').forEach(a => a.onclick = async () => {
+      openDlg('…');
+      try {
+        const c = await call('adminChat', { reportId: a.dataset.chat });
+        const first = c.members[0]?.uid;
+        const nm = Object.fromEntries(c.members.map(m => [m.uid, m.name]));
+        $('#dlgBody').innerHTML = `<h3 style="margin-top:0">${c.members.map(m => esc(m.name)).join(' ↔ ')}</h3><p class="muted" style="font-size:13px">يُسجَّل فتح هذه المحادثة في سجل الإجراءات.</p><div class="msgs">${c.messages.map(m => m.system ? `<div class="msg sys">تغيير إعداد الرسائل المؤقتة</div>` : `<div class="msg ${m.from === first ? 'a' : ''}"><small>${esc(nm[m.from])} · ${when(m.at)}</small>${m.deleted ? '<i class="muted">رسالة محذوفة</i>' : esc(m.text)}${m.media ? ` <span class="tag">${esc(m.media)}</span>` : ''}</div>`).join('')}</div>`;
+      } catch (e) { $('#dlgBody').textContent = 'خطأ: ' + e.message; }
+    });
+  },
+  user() {
+    $('#find').onclick = async () => { $('#uout').innerHTML = '…'; try { $('#uout').innerHTML = await userCard($('#uid').value.trim()); wireAction(); } catch (e) { $('#uout').textContent = 'خطأ: ' + e.message; } };
+  },
+  announce() {
+    $('#asend').onclick = async () => { try { await call('adminAnnounce', { text: $('#atext').value, days: +$('#adays').value }); toast('تمّ النشر'); } catch (e) { toast('خطأ: ' + e.message); } };
+  },
+  roles() {
+    $('#radd').onclick = async () => { try { await call('adminSetRole', { email: $('#remail').value, role: $('#rrole').value }); toast('تمّت الإضافة'); show('roles'); } catch (e) { toast('خطأ: ' + e.message); } };
+    document.querySelectorAll('[data-rm]').forEach(b => b.onclick = async () => { if (!confirm('إزالة الصلاحية؟')) return; try { await call('adminSetRole', { email: b.dataset.rm, role: null }); show('roles'); } catch (e) { toast('خطأ: ' + e.message); } });
+  },
+};
+</script>
+</body>
+</html>

@@ -100,6 +100,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     child: Text(context.t(_orig.contains(p.id) ? 'hide_original' : 'show_original')),
                   ),
                 ),
+                if (p.fromCountry.isNotEmpty) CountryFact(country: p.fromCountry),
                 LaunchButton(busy: _busy.contains(p.id), onPressed: _busy.contains(p.id) ? null : () => _catch(p), label: context.t('catch_reply'), icon: Icons.reply),
                 const SizedBox(height: 10),
                 OutlinedButton(
@@ -113,4 +114,56 @@ class _InboxScreenState extends State<InboxScreen> {
       },
     );
   }
+}
+
+
+/// "Did you know?" about the country a letter came from. Loaded once per country and language.
+class CountryFact extends StatefulWidget {
+  const CountryFact({super.key, required this.country});
+  final String country;
+  static final Map<String, Future<String?>> _cache = {};
+  @override
+  State<CountryFact> createState() => _CountryFactState();
+}
+
+class _CountryFactState extends State<CountryFact> {
+  Future<String?>? _f;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final lang = context.lang;
+    _f = CountryFact._cache.putIfAbsent('${widget.country}:$lang', () async {
+      try {
+        final r = await Api.call('countryFact', {'country': widget.country, 'lang': lang});
+        return r['fact'] as String?;
+      } catch (_) {
+        return null;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<String?>(
+        future: _f,
+        builder: (context, s) {
+          final fact = s.data;
+          if (fact == null || fact.isEmpty) return const SizedBox.shrink();
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: kParchmentDark, borderRadius: BorderRadius.circular(12), border: Border.all(color: kParchmentLine)),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.lightbulb_outline, size: 18, color: kInkSoft),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text.rich(TextSpan(children: [
+                  TextSpan(text: '${context.t('did_you_know')} ', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  TextSpan(text: fact),
+                ]), style: const TextStyle(color: kInk, fontSize: 13, height: 1.5)),
+              ),
+            ]),
+          );
+        },
+      );
 }

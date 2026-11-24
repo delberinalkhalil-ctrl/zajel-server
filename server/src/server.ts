@@ -24,6 +24,9 @@ import { memberChat } from './chats';
 import { MEDIA_AFTER_MESSAGES, MEDIA_KINDS, MediaKind, mediaExt, saveMedia } from './media';
 import { guardMediaRoot, Limiter } from './limits';
 import { publishRulesIfChanged } from './publishRules';
+import { purgeErrors, serverError } from './errors';
+import { backupExists, runBackup } from './backup';
+import { purgeExpiredMessages } from './chats';
 
 initializeApp();
 guardMediaRoot(env('MEDIA_DIR', '/tmp/zajel-media'));
@@ -49,10 +52,11 @@ async function uidFrom(req: Request): Promise<string | undefined> {
 
 function sendError(res: Response, e: unknown) {
   if (e instanceof HttpsError) {
-    const status = e.code === 'unauthenticated' ? 401 : e.code === 'not-found' ? 404 : e.code === 'resource-exhausted' ? 429 : 400;
+    const status = e.code === 'unauthenticated' ? 401 : e.code === 'not-found' ? 404 : e.code === 'resource-exhausted' ? 429 : e.code === 'permission-denied' ? 403 : 400;
     res.status(status).json({ error: { code: e.code, message: e.message } });
   } else {
     logger.error('unhandled', e);
+    void serverError('http', e);
     res.status(500).json({ error: { code: 'internal', message: 'internal' } });
   }
 }
@@ -150,10 +154,20 @@ r.get('/cron', async (req, res) => {
   running = true;
   try {
     await pigeonClock();
-    if (new Date().getUTCMinutes() === 0) await vipExpiry();
+    const now = new Date();
+    if (now.getUTCMinutes() === 0) {
+      await vipExpiry();
+      await purgeExpiredMessages();
+    }
+    // Once a day after 02:00 UTC (a quiet hour in the Middle East and Europe): backup and housekeeping.
+    if (now.getUTCHours() >= 2 && !backupExists(now)) {
+      await runBackup().catch(e => serverError('backup', e));
+      await purgeErrors().catch(e => serverError('purgeErrors', e));
+    }
     res.json({ ok: true });
   } catch (e) {
     logger.error('cron failed', e);
+    void serverError('cron', e);
     res.status(500).json({ ok: false });
   } finally {
     running = false;

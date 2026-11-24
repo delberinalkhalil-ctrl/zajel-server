@@ -15,6 +15,7 @@ import '../core/push.dart';
 import '../core/session.dart';
 import '../widgets/common.dart';
 import 'lock_screen.dart';
+import 'passport_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -210,6 +211,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
               ),
               const PassportStats(),
+              InkWell(
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PassportScreen())),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: const BoxDecoration(border: Border(top: BorderSide(color: kParchmentLine))),
+                  child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text(context.t('open_passport'), style: const TextStyle(color: kRed, fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, color: kRed, size: 18),
+                  ]),
+                ),
+              ),
             ]),
           ),
           const SizedBox(height: 16),
@@ -234,7 +247,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             SwitchListTile(title: Text(context.t('auto_translate')), subtitle: Text(context.t('auto_translate_sub')), value: app.autoTranslate, onChanged: app.setAutoTranslate),
             SwitchListTile(title: Text(context.t('always_original')), subtitle: Text(context.t('always_original_sub')), value: app.showOriginal, onChanged: app.setShowOriginal),
             SwitchListTile(title: Text(context.t('receive_pigeons')), subtitle: Text(context.t('receive_pigeons_sub')), value: me.receiving, onChanged: (v) => _update({'receiving': v})),
+            ListTile(
+              title: Text(context.t('effects')),
+              subtitle: Text(context.t('effects_sub')),
+              trailing: DropdownButton<String>(
+                value: me.effects,
+                underline: const SizedBox(),
+                items: [for (final v in ['full', 'light', 'off']) DropdownMenuItem(value: v, child: Text(context.t('effects_$v')))],
+                onChanged: (v) => v == null ? null : _update({'settings': {'effects': v}}),
+              ),
+            ),
+          ]),
+          section(context.t('notifications'), [
             sw('notif', context.t('notifications'), context.t('notifications_sub')),
+            sw('notifPigeon', context.t('notif_pigeon'), context.t('notif_pigeon_sub'), enabled: me.setting('notif')),
+            sw('notifMessage', context.t('notif_message'), context.t('notif_message_sub'), enabled: me.setting('notif')),
+            sw('notifAccept', context.t('notif_accept'), context.t('notif_accept_sub'), enabled: me.setting('notif')),
+            sw('hidePreview', context.t('hide_preview'), context.t('hide_preview_sub'), def: false, enabled: me.setting('notif')),
             sw('sound', context.t('sounds'), context.t('sounds_sub')),
           ]),
           section(context.t('privacy_section'), [
@@ -252,6 +281,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             sw('showCity', context.t('show_city'), context.t('show_city_sub')),
+            sw('showAchievements', context.t('show_achievements'), context.t('show_achievements_sub')),
+            ListTile(
+              title: Text(context.t('gender')),
+              subtitle: Text(context.t('gender_sub')),
+              trailing: DropdownButton<String>(
+                value: me.gender,
+                underline: const SizedBox(),
+                items: [
+                  DropdownMenuItem(value: '', child: Text(context.t('gender_none'))),
+                  DropdownMenuItem(value: 'f', child: Text(context.t('gender_f'))),
+                  DropdownMenuItem(value: 'm', child: Text(context.t('gender_m'))),
+                ],
+                onChanged: (v) => v == null ? null : _update({'gender': v}),
+              ),
+            ),
+            SwitchListTile(
+              title: Text(context.t('gender_match')),
+              subtitle: Text(context.t('gender_match_sub')),
+              value: me.genderMatch,
+              onChanged: me.gender.isEmpty ? null : (v) => _update({'genderMatch': v}),
+            ),
             ListTile(
               title: Text(context.t('blocked_users')),
               subtitle: Text(context.t('n_users', {'n': me.blocked.length})),

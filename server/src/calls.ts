@@ -1,7 +1,7 @@
 import { RtcRole, RtcTokenBuilder } from 'agora-token';
 import { env, onCall } from './runtime';
 import { CALLS_AFTER_MESSAGES, COST, RING_SECONDS } from './config';
-import { bad, db, fail, FieldValue, getUser, isVip, numericUid, requireUid, Timestamp, UserDoc } from './common';
+import { bad, checkRestricted, db, fail, FieldValue, getUser, isVip, numericUid, requireUid, Timestamp, UserDoc } from './common';
 import { memberChat } from './chats';
 import { fmt, pushTo } from './notify';
 
@@ -23,6 +23,7 @@ export const startCall = onCall(secrets, async req => {
   const [me, themSnap] = await Promise.all([getUser(uid), db().doc(`users/${other}`).get()]);
   const them = themSnap.data() as UserDoc | undefined;
   if (!them || (them.blocked ?? []).includes(uid)) fail('blocked');
+  checkRestricted(me);
   const rule = them!.settings?.calls ?? 'all';
   if (rule === 'none') fail('calls_off');
   if (rule === 'ten' && (c.messageCount ?? 0) < CALLS_AFTER_MESSAGES) fail('calls_need_messages');

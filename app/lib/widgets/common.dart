@@ -349,3 +349,32 @@ String localTime(BuildContext c, int tzMinutes) {
   final t = DateTime.now().toUtc().add(Duration(minutes: tzMinutes));
   return MaterialLocalizations.of(c).formatTimeOfDay(TimeOfDay(hour: t.hour, minute: t.minute));
 }
+
+/// Date only, in the user's language.
+String shortDate(BuildContext c, DateTime t) => MaterialLocalizations.of(c).formatMediumDate(t);
+
+/// Thin bar under the app bar: announcements from the Zajel team, or an account restriction.
+class NoticeBanner extends StatelessWidget {
+  const NoticeBanner({super.key, required this.icon, required this.text, this.color = kGold, this.onClose});
+  final IconData icon;
+  final String text;
+  final Color color;
+  final VoidCallback? onClose;
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 4, 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .14),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: .45)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(text, style: const TextStyle(color: kParchment, fontSize: 13.5, height: 1.35))),
+          if (onClose != null)
+            IconButton(visualDensity: VisualDensity.compact, icon: const Icon(Icons.close, size: 18, color: kMuted), onPressed: onClose),
+        ]),
+      );
+}
