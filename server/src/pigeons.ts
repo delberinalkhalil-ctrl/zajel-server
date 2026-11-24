@@ -3,7 +3,7 @@ import { logger } from './runtime';
 import { onCall } from './runtime';
 import { ACTIVE_WITHIN_DAYS, COST, FREE_MODE, FREE_PIGEONS_PER_DAY, MAX_FLYING_PER_USER, MAX_HOPS } from './config';
 import { bad, db, fail, FieldValue, getUser, isVip, publicCity, requireUid, Timestamp, todayUtc, UserDoc } from './common';
-import { distanceKm, flightMinutes, LatLon } from './geo';
+import { distanceKm, flightMs, LatLon } from './geo';
 import { checkText, MAX_PIGEON_LEN, normalize } from './moderation';
 import { fmt, pushTo } from './notify';
 
@@ -46,18 +46,23 @@ export async function pickRecipient(p: Pigeon, sender: Partial<UserDoc>): Promis
   return list[Math.floor(Math.random() * list.length)];
 }
 
+/** Set by the job module: lands the pigeon the moment it arrives instead of waiting for the next cron run. */
+export const flightHooks = { onFlying: (_id: string, _arriveAt: number) => { /* replaced in jobs.ts */ } };
+
 /** Sends the pigeon from `origin` to `c`. */
 export async function flyTo(ref: DocumentReference, p: Pigeon, c: DocumentSnapshot, origin: LatLon) {
   const u = c.data() as UserDoc;
   const km = distanceKm(origin, u.loc);
   const now = Date.now();
+  const arriveAt = now + flightMs(km, p.fast);
   await ref.update({
     status: 'flying', toUid: c.id, toName: u.name, toCity: publicCity(u), toCountry: u.country, toCountryName: u.countryName ?? '',
-    toLoc: u.loc, km, departAt: Timestamp.fromMillis(now), arriveAt: Timestamp.fromMillis(now + flightMinutes(km, p.fast) * 60_000),
+    toLoc: u.loc, km, departAt: Timestamp.fromMillis(now), arriveAt: Timestamp.fromMillis(arriveAt),
     tried: FieldValue.arrayUnion(c.id), originLoc: origin,
   });
   await c.ref.update({ rand: Math.random() });
-  return { km, arriveAt: now + flightMinutes(km, p.fast) * 60_000, toLoc: u.loc, toCity: publicCity(u), toCountryName: u.countryName ?? '' };
+  flightHooks.onFlying(ref.id, arriveAt);
+  return { km, arriveAt, toLoc: u.loc, toCity: publicCity(u), toCountryName: u.countryName ?? '' };
 }
 
 /** Tries to find a recipient. Leaves the pigeon "waiting" if nobody is available yet. */

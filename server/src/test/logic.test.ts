@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { distanceKm, flightMinutes, coarse, validLatLon } from '../geo';
+import { distanceKm, flightMs, coarse, validLatLon } from '../geo';
 import { checkText, normalize } from '../moderation';
 import { fromGoogleLang, toGoogleLang, isLang, LANGS } from '../config';
 import { fmt } from '../notify';
@@ -12,10 +12,12 @@ test('distance Baghdad to Toronto is about 9,700 km', () => {
 });
 
 test('flight time is clamped and fast pigeons take 30 minutes', () => {
-  assert.equal(flightMinutes(10, false), 20);
-  assert.equal(flightMinutes(9000, false), 360);
-  assert.equal(flightMinutes(20000, false), 480);
-  assert.equal(flightMinutes(9000, true), 30);
+  assert.equal(flightMs(0, false), 3000);
+  assert.ok(flightMs(10, false) >= 3000 && flightMs(10, false) < 3100);
+  assert.equal(flightMs(20015, false), 15000);
+  assert.equal(flightMs(40000, false), 15000);
+  assert.ok(flightMs(9000, false) > 8000 && flightMs(9000, false) < 9000);
+  assert.equal(flightMs(9000, true), 3000);
 });
 
 test('coordinates are stored at city precision', () => {

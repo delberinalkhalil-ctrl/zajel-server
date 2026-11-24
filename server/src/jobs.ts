@@ -1,8 +1,51 @@
-import { logger } from './runtime';
+import { logger, onCall } from './runtime';
 import { LANDED_AUTO_RELEASE_H, WAITING_EXPIRE_DAYS } from './config';
-import { db, Timestamp, UserDoc } from './common';
+import { db, fail, requireUid, Timestamp, UserDoc } from './common';
 import { fmt, pushTo } from './notify';
-import { assign, moveOn, Pigeon } from './pigeons';
+import { assign, flightHooks, moveOn, Pigeon } from './pigeons';
+import type { DocumentReference } from 'firebase-admin/firestore';
+
+/**
+ * Lands one arrived pigeon. The status switch happens in a transaction, so the in-process timer,
+ * the app's own call when the flight ends and the cron fallback can never land it twice.
+ */
+async function landOne(ref: DocumentReference) {
+  const snap = await ref.get();
+  const p0 = snap.data() as Pigeon | undefined;
+  if (!p0 || p0.status !== 'flying' || (p0.arriveAt?.toMillis() ?? Infinity) > Date.now() + 1500) return false;
+  const r = (await db().doc(`users/${p0.toUid}`).get()).data() as UserDoc | undefined;
+  if (!r || r.banned || !r.receiving || (r.blocked ?? []).includes(p0.from)) { await moveOn(ref, p0); return false; }
+  const claimed = await db().runTransaction(async tx => {
+    const s = await tx.get(ref);
+    if ((s.data() as Pigeon | undefined)?.status !== 'flying') return false;
+    tx.update(ref, { status: 'landed', landedAt: Timestamp.now() });
+    return true;
+  });
+  if (!claimed) return false;
+  const { src, tr } = await translateAll(p0.text, [r.lang], p0.fromLang);
+  await ref.update({ src, tr });
+  await pushTo(p0.toUid!, {
+    title: fmt(r.lang, 'landed_t'), body: fmt(r.lang, 'landed_b', { city: p0.fromCity, country: p0.fromCountryName }),
+    data: { type: 'pigeon', id: ref.id },
+  });
+  return true;
+}
+
+function landSoon(id: string, arriveAt: number) {
+  const ref = db().doc(`pigeons/${id}`);
+  setTimeout(() => { landOne(ref).catch(e => logger.error('timed landing failed', { id, e: String(e) })); }, Math.max(0, arriveAt - Date.now()) + 200);
+}
+flightHooks.onFlying = landSoon;
+
+/** Called by the sender's or the receiver's app when the flight animation ends, in case the server timer was lost. */
+export const landPigeon = onCall(async req => {
+  const uid = requireUid(req);
+  const ref = db().doc(`pigeons/${String(req.data?.id ?? '')}`);
+  const p = (await ref.get()).data() as Pigeon | undefined;
+  if (!p || (p.from !== uid && p.toUid !== uid)) fail('not_found');
+  const landed = await landOne(ref);
+  return { landed };
+});
 import { translateAll } from './translate';
 
 /** Every minute: land arrived pigeons, retry waiting ones, move on uncaught ones. */
@@ -12,17 +55,7 @@ export async function pigeonClock() {
 
   const due = await pigeons.where('status', '==', 'flying').where('arriveAt', '<=', now).limit(200).get();
   for (const d of due.docs) {
-    const p = d.data() as Pigeon;
-    try {
-      const r = (await db().doc(`users/${p.toUid}`).get()).data() as UserDoc | undefined;
-      if (!r || r.banned || !r.receiving || (r.blocked ?? []).includes(p.from)) { await moveOn(d.ref, p); continue; }
-      const { src, tr } = await translateAll(p.text, [r.lang], p.fromLang);
-      await d.ref.update({ status: 'landed', landedAt: Timestamp.now(), src, tr });
-      await pushTo(p.toUid!, {
-        title: fmt(r.lang, 'landed_t'), body: fmt(r.lang, 'landed_b', { city: p.fromCity, country: p.fromCountryName }),
-        data: { type: 'pigeon', id: d.id },
-      });
-    } catch (e) { logger.error('land failed', { id: d.id, e: String(e) }); }
+    try { await landOne(d.ref); } catch (e) { logger.error('land failed', { id: d.id, e: String(e) }); }
   }
 
   const waiting = await pigeons.where('status', '==', 'waiting').orderBy('createdAt').limit(50).get();

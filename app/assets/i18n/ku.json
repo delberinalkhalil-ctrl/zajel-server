@@ -267,5 +267,6 @@
  "err_file_too_big": "Ev pel pir mezin e (herî zêde 20 MB).",
  "err_bad_file_type": "Ev cureyê pelê nayê şandin.",
  "err_bad_media": "Ev pêvek nehat şandin.",
- "err_bad_photo": "Ev wêne nayê bikaranîn. Yekî din biceribîne."
+ "err_bad_photo": "Ev wêne nayê bikaranîn. Yekî din biceribîne.",
+ "eta_s": "Di {s} çirkeyan de digihîje"
 }

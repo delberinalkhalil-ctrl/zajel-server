@@ -12,11 +12,10 @@ export const FREE_PIGEONS_PER_DAY = FREE_MODE ? FREE_MODE_DAILY_PIGEONS : 3;
 export const START_POINTS = 120;
 export const MAX_FLYING_PER_USER = 3;
 
-// Flight time: a normal pigeon flies NORMAL_KMH, clamped between MIN and MAX minutes. A fast one takes FAST_MIN.
-export const NORMAL_KMH = 1500;
-export const MIN_FLIGHT_MIN = 20;
-export const MAX_FLIGHT_MIN = 480;
-export const FAST_MIN = 30;
+// Flight time grows with distance: FLIGHT_MIN_MS for the nearest place, FLIGHT_MAX_MS for the far side of the Earth.
+export const FLIGHT_MIN_MS = 3_000;
+export const FLIGHT_MAX_MS = 15_000;
+export const HALF_EARTH_KM = 20_015;
 
 export const MAX_HOPS = 5;                 // a released pigeon tries this many people before it gives up
 export const LANDED_AUTO_RELEASE_H = 24;   // an uncaught pigeon moves on after this long

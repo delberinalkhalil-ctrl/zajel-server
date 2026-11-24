@@ -267,5 +267,6 @@
  "err_file_too_big": "This file is too large (20 MB at most).",
  "err_bad_file_type": "This type of file cannot be sent.",
  "err_bad_media": "This attachment could not be sent.",
- "err_bad_photo": "This photo could not be used. Try another one."
+ "err_bad_photo": "This photo could not be used. Try another one.",
+ "eta_s": "Arrives in {s} s"
 }

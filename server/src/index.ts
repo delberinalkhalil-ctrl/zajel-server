@@ -4,12 +4,13 @@ import { sendPigeon, catchPigeon, releasePigeon } from './pigeons';
 import { sendMessage, markRead } from './chats';
 import { startCall, answerCall, endCall } from './calls';
 import { verifyPurchase } from './billing';
+import { landPigeon } from './jobs';
 import { blockUser, unblockUser, reportUser } from './safety';
 
 /** Every call the app can make, by name. */
 export const handlers: Record<string, Handler> = {
   initUser, updateProfile, registerToken, deleteAccount,
-  sendPigeon, catchPigeon, releasePigeon,
+  sendPigeon, catchPigeon, releasePigeon, landPigeon,
   sendMessage, markRead,
   startCall, answerCall, endCall,
   verifyPurchase,

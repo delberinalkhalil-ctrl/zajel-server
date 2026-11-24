@@ -1,4 +1,4 @@
-import { FAST_MIN, MAX_FLIGHT_MIN, MIN_FLIGHT_MIN, NORMAL_KMH } from './config';
+import { FLIGHT_MAX_MS, FLIGHT_MIN_MS, HALF_EARTH_KM } from './config';
 
 export interface LatLon { lat: number; lon: number }
 
@@ -10,10 +10,11 @@ export function distanceKm(a: LatLon, b: LatLon): number {
   return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
 }
 
-/** Flight duration in minutes for a pigeon over `km`. */
-export function flightMinutes(km: number, fast: boolean): number {
-  if (fast) return FAST_MIN;
-  return Math.max(MIN_FLIGHT_MIN, Math.min(MAX_FLIGHT_MIN, Math.round((km / NORMAL_KMH) * 60)));
+/** Flight duration in milliseconds over `km`: 3 s for the nearest place up to 15 s for the far side of the Earth. */
+export function flightMs(km: number, fast: boolean): number {
+  if (fast) return FLIGHT_MIN_MS;
+  const f = Math.max(0, Math.min(1, km / HALF_EARTH_KM));
+  return Math.round(FLIGHT_MIN_MS + (FLIGHT_MAX_MS - FLIGHT_MIN_MS) * f);
 }
 
 /** City-level precision (about 10 km) so exact homes are never stored. */

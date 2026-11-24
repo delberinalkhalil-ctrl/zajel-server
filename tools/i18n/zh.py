@@ -267,5 +267,6 @@ T = {
 "err_file_too_big": "文件过大（最多 20 MB）。",
 "err_bad_file_type": "无法发送此类型的文件。",
 "err_bad_media": "无法发送此附件。",
-"err_bad_photo": "无法使用这张照片，请换一张。"
+"err_bad_photo": "无法使用这张照片，请换一张。",
+"eta_s": "{s} 秒后到达"
 }

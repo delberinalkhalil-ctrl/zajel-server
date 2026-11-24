@@ -267,5 +267,6 @@
  "err_file_too_big": "Ce fichier est trop volumineux (20 Mo maximum).",
  "err_bad_file_type": "Ce type de fichier ne peut pas être envoyé.",
  "err_bad_media": "Cette pièce jointe n'a pas pu être envoyée.",
- "err_bad_photo": "Cette photo ne peut pas être utilisée. Essayez-en une autre."
+ "err_bad_photo": "Cette photo ne peut pas être utilisée. Essayez-en une autre.",
+ "eta_s": "Arrive dans {s} s"
 }

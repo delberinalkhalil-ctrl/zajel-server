@@ -48,10 +48,9 @@ var COST = FREE_MODE ? { extra: 0, dest: 0, fast: 0, voice: 0, video: 0 } : { ex
 var FREE_PIGEONS_PER_DAY = FREE_MODE ? FREE_MODE_DAILY_PIGEONS : 3;
 var START_POINTS = 120;
 var MAX_FLYING_PER_USER = 3;
-var NORMAL_KMH = 1500;
-var MIN_FLIGHT_MIN = 20;
-var MAX_FLIGHT_MIN = 480;
-var FAST_MIN = 30;
+var FLIGHT_MIN_MS = 3e3;
+var FLIGHT_MAX_MS = 15e3;
+var HALF_EARTH_KM = 20015;
 var MAX_HOPS = 5;
 var LANDED_AUTO_RELEASE_H = 24;
 var WAITING_EXPIRE_DAYS = 7;
@@ -259,9 +258,10 @@ function distanceKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * d) * Math.cos(b.lat * d) * Math.sin(dLon / 2) ** 2;
   return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
 }
-function flightMinutes(km, fast) {
-  if (fast) return FAST_MIN;
-  return Math.max(MIN_FLIGHT_MIN, Math.min(MAX_FLIGHT_MIN, Math.round(km / NORMAL_KMH * 60)));
+function flightMs(km, fast) {
+  if (fast) return FLIGHT_MIN_MS;
+  const f = Math.max(0, Math.min(1, km / HALF_EARTH_KM));
+  return Math.round(FLIGHT_MIN_MS + (FLIGHT_MAX_MS - FLIGHT_MIN_MS) * f);
 }
 var coarse = (x) => Math.round(x * 10) / 10;
 function validLatLon(v) {
@@ -487,10 +487,13 @@ async function pickRecipient(p, sender) {
   }
   return list[Math.floor(Math.random() * list.length)];
 }
+var flightHooks = { onFlying: (_id, _arriveAt) => {
+} };
 async function flyTo(ref, p, c, origin) {
   const u = c.data();
   const km = distanceKm(origin, u.loc);
   const now = Date.now();
+  const arriveAt = now + flightMs(km, p.fast);
   await ref.update({
     status: "flying",
     toUid: c.id,
@@ -501,12 +504,13 @@ async function flyTo(ref, p, c, origin) {
     toLoc: u.loc,
     km,
     departAt: import_firestore.Timestamp.fromMillis(now),
-    arriveAt: import_firestore.Timestamp.fromMillis(now + flightMinutes(km, p.fast) * 6e4),
+    arriveAt: import_firestore.Timestamp.fromMillis(arriveAt),
     tried: import_firestore.FieldValue.arrayUnion(c.id),
     originLoc: origin
   });
   await c.ref.update({ rand: Math.random() });
-  return { km, arriveAt: now + flightMinutes(km, p.fast) * 6e4, toLoc: u.loc, toCity: publicCity(u), toCountryName: u.countryName ?? "" };
+  flightHooks.onFlying(ref.id, arriveAt);
+  return { km, arriveAt, toLoc: u.loc, toCity: publicCity(u), toCountryName: u.countryName ?? "" };
 }
 async function assign(ref, p, origin, sender) {
   const s = sender ?? (await db().doc(`users/${p.from}`).get()).data() ?? {};
@@ -906,6 +910,91 @@ var verifyPurchase = onCall(async (req) => {
   bad("unknown_product");
 });
 
+// src/jobs.ts
+async function landOne(ref) {
+  const snap = await ref.get();
+  const p0 = snap.data();
+  if (!p0 || p0.status !== "flying" || (p0.arriveAt?.toMillis() ?? Infinity) > Date.now() + 1500) return false;
+  const r2 = (await db().doc(`users/${p0.toUid}`).get()).data();
+  if (!r2 || r2.banned || !r2.receiving || (r2.blocked ?? []).includes(p0.from)) {
+    await moveOn(ref, p0);
+    return false;
+  }
+  const claimed = await db().runTransaction(async (tx) => {
+    const s = await tx.get(ref);
+    if (s.data()?.status !== "flying") return false;
+    tx.update(ref, { status: "landed", landedAt: import_firestore.Timestamp.now() });
+    return true;
+  });
+  if (!claimed) return false;
+  const { src, tr } = await translateAll(p0.text, [r2.lang], p0.fromLang);
+  await ref.update({ src, tr });
+  await pushTo(p0.toUid, {
+    title: fmt(r2.lang, "landed_t"),
+    body: fmt(r2.lang, "landed_b", { city: p0.fromCity, country: p0.fromCountryName }),
+    data: { type: "pigeon", id: ref.id }
+  });
+  return true;
+}
+function landSoon(id, arriveAt) {
+  const ref = db().doc(`pigeons/${id}`);
+  setTimeout(() => {
+    landOne(ref).catch((e) => logger.error("timed landing failed", { id, e: String(e) }));
+  }, Math.max(0, arriveAt - Date.now()) + 200);
+}
+flightHooks.onFlying = landSoon;
+var landPigeon = onCall(async (req) => {
+  const uid = requireUid(req);
+  const ref = db().doc(`pigeons/${String(req.data?.id ?? "")}`);
+  const p = (await ref.get()).data();
+  if (!p || p.from !== uid && p.toUid !== uid) fail("not_found");
+  const landed = await landOne(ref);
+  return { landed };
+});
+async function pigeonClock() {
+  const now = import_firestore.Timestamp.now();
+  const pigeons = db().collection("pigeons");
+  const due = await pigeons.where("status", "==", "flying").where("arriveAt", "<=", now).limit(200).get();
+  for (const d of due.docs) {
+    try {
+      await landOne(d.ref);
+    } catch (e) {
+      logger.error("land failed", { id: d.id, e: String(e) });
+    }
+  }
+  const waiting = await pigeons.where("status", "==", "waiting").orderBy("createdAt").limit(50).get();
+  const tooOld = Date.now() - WAITING_EXPIRE_DAYS * 864e5;
+  for (const d of waiting.docs) {
+    const p = d.data();
+    try {
+      if (p.createdAt.toMillis() < tooOld) {
+        await d.ref.update({ status: "expired" });
+        const s = (await db().doc(`users/${p.from}`).get()).data();
+        if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: d.id } });
+      } else await assign(d.ref, p, p.originLoc ?? p.fromLoc);
+    } catch (e) {
+      logger.error("retry failed", { id: d.id, e: String(e) });
+    }
+  }
+  const stale = import_firestore.Timestamp.fromMillis(Date.now() - LANDED_AUTO_RELEASE_H * 36e5);
+  const uncaught = await pigeons.where("status", "==", "landed").where("landedAt", "<=", stale).limit(100).get();
+  for (const d of uncaught.docs) {
+    try {
+      await moveOn(d.ref, d.data());
+    } catch (e) {
+      logger.error("auto release failed", { id: d.id, e: String(e) });
+    }
+  }
+  logger.info("pigeon clock", { landed: due.size, waiting: waiting.size, released: uncaught.size });
+}
+async function vipExpiry() {
+  const gone = await db().collection("users").where("vipActive", "==", true).where("vipUntil", "<=", import_firestore.Timestamp.now()).limit(500).get();
+  for (const d of gone.docs) {
+    await d.ref.update({ vipActive: false, "settings.ghost": false, "settings.hideRead": false, "settings.priority": false });
+    await db().doc(`profiles/${d.id}`).set({ vip: false }, { merge: true });
+  }
+}
+
 // src/safety.ts
 var REASONS = ["spam", "scam", "sexual", "harassment", "underage", "fake", "other"];
 async function setChatsBlocked(a, b, blocked) {
@@ -954,63 +1043,6 @@ var reportUser = onCall(async (req) => {
   return { ok: true };
 });
 
-// src/jobs.ts
-async function pigeonClock() {
-  const now = import_firestore.Timestamp.now();
-  const pigeons = db().collection("pigeons");
-  const due = await pigeons.where("status", "==", "flying").where("arriveAt", "<=", now).limit(200).get();
-  for (const d of due.docs) {
-    const p = d.data();
-    try {
-      const r2 = (await db().doc(`users/${p.toUid}`).get()).data();
-      if (!r2 || r2.banned || !r2.receiving || (r2.blocked ?? []).includes(p.from)) {
-        await moveOn(d.ref, p);
-        continue;
-      }
-      const { src, tr } = await translateAll(p.text, [r2.lang], p.fromLang);
-      await d.ref.update({ status: "landed", landedAt: import_firestore.Timestamp.now(), src, tr });
-      await pushTo(p.toUid, {
-        title: fmt(r2.lang, "landed_t"),
-        body: fmt(r2.lang, "landed_b", { city: p.fromCity, country: p.fromCountryName }),
-        data: { type: "pigeon", id: d.id }
-      });
-    } catch (e) {
-      logger.error("land failed", { id: d.id, e: String(e) });
-    }
-  }
-  const waiting = await pigeons.where("status", "==", "waiting").orderBy("createdAt").limit(50).get();
-  const tooOld = Date.now() - WAITING_EXPIRE_DAYS * 864e5;
-  for (const d of waiting.docs) {
-    const p = d.data();
-    try {
-      if (p.createdAt.toMillis() < tooOld) {
-        await d.ref.update({ status: "expired" });
-        const s = (await db().doc(`users/${p.from}`).get()).data();
-        if (s) await pushTo(p.from, { title: fmt(s.lang, "expired_t"), body: fmt(s.lang, "expired_b"), data: { type: "pigeon", id: d.id } });
-      } else await assign(d.ref, p, p.originLoc ?? p.fromLoc);
-    } catch (e) {
-      logger.error("retry failed", { id: d.id, e: String(e) });
-    }
-  }
-  const stale = import_firestore.Timestamp.fromMillis(Date.now() - LANDED_AUTO_RELEASE_H * 36e5);
-  const uncaught = await pigeons.where("status", "==", "landed").where("landedAt", "<=", stale).limit(100).get();
-  for (const d of uncaught.docs) {
-    try {
-      await moveOn(d.ref, d.data());
-    } catch (e) {
-      logger.error("auto release failed", { id: d.id, e: String(e) });
-    }
-  }
-  logger.info("pigeon clock", { landed: due.size, waiting: waiting.size, released: uncaught.size });
-}
-async function vipExpiry() {
-  const gone = await db().collection("users").where("vipActive", "==", true).where("vipUntil", "<=", import_firestore.Timestamp.now()).limit(500).get();
-  for (const d of gone.docs) {
-    await d.ref.update({ vipActive: false, "settings.ghost": false, "settings.hideRead": false, "settings.priority": false });
-    await db().doc(`profiles/${d.id}`).set({ vip: false }, { merge: true });
-  }
-}
-
 // src/index.ts
 var handlers = {
   initUser,
@@ -1020,6 +1052,7 @@ var handlers = {
   sendPigeon,
   catchPigeon,
   releasePigeon,
+  landPigeon,
   sendMessage,
   markRead,
   startCall,

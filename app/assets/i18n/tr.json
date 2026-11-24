@@ -267,5 +267,6 @@
  "err_file_too_big": "Bu dosya çok büyük (en fazla 20 MB).",
  "err_bad_file_type": "Bu dosya türü gönderilemez.",
  "err_bad_media": "Bu ek gönderilemedi.",
- "err_bad_photo": "Bu fotoğraf kullanılamadı. Başka bir tane deneyin."
+ "err_bad_photo": "Bu fotoğraf kullanılamadı. Başka bir tane deneyin.",
+ "eta_s": "{s} sn içinde varıyor"
 }

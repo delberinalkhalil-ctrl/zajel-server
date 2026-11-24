@@ -44,7 +44,7 @@ class _SkyScreenState extends State<SkyScreen> {
   @override
   void initState() {
     super.initState();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+    _tick = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (mounted) setState(() {});
     });
   }
@@ -95,11 +95,21 @@ class _SkyScreenState extends State<SkyScreen> {
         ),
       );
 
+  /// Pigeons whose flight has ended and for which the app has asked the server to land them.
+  final Set<String> _landAsked = {};
+
   String _eta(BuildContext c, Pigeon p) {
     final a = p.arriveAt;
     if (a == null) return c.t('waiting_for_catcher');
-    final m = a.difference(DateTime.now()).inMinutes;
-    if (m <= 0) return c.t('landing_now');
+    final ms = a.difference(DateTime.now()).inMilliseconds;
+    if (ms <= 0) {
+      // Flights last 3 to 15 seconds: as soon as one ends, ask the server to land it (it also has its own timer).
+      if (p.status == 'flying' && _landAsked.add(p.id)) Api.call('landPigeon', {'id': p.id}).ignore();
+      return c.t('landing_now');
+    }
+    final s = (ms / 1000).ceil();
+    if (s < 60) return c.t('eta_s', {'s': s});
+    final m = (s / 60).ceil();
     return m >= 60 ? c.t('eta_hm', {'h': m ~/ 60, 'm': m % 60}) : c.t('eta_m', {'m': m});
   }
 

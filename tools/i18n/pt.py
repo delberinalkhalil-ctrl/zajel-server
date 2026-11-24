@@ -267,5 +267,6 @@ T = {
 "err_file_too_big": "Este arquivo é grande demais (no máximo 20 MB).",
 "err_bad_file_type": "Este tipo de arquivo não pode ser enviado.",
 "err_bad_media": "Não foi possível enviar este anexo.",
-"err_bad_photo": "Não foi possível usar esta foto. Tente outra."
+"err_bad_photo": "Não foi possível usar esta foto. Tente outra.",
+"eta_s": "Chega em {s} s"
 }
