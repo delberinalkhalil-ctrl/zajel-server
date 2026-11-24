@@ -100,11 +100,13 @@ class _InboxScreenState extends State<InboxScreen> {
                     child: Text(context.t(_orig.contains(p.id) ? 'hide_original' : 'show_original')),
                   ),
                 ),
-                Row(children: [
-                  Expanded(flex: 2, child: LaunchButton(busy: _busy.contains(p.id), onPressed: _busy.contains(p.id) ? null : () => _catch(p), label: context.t('catch_reply'), icon: Icons.reply)),
-                  const SizedBox(width: 10),
-                  Expanded(child: OutlinedButton(onPressed: _busy.contains(p.id) ? null : () => _release(p), child: Text(context.t('release'), textAlign: TextAlign.center))),
-                ]),
+                LaunchButton(busy: _busy.contains(p.id), onPressed: _busy.contains(p.id) ? null : () => _catch(p), label: context.t('catch_reply'), icon: Icons.reply),
+                const SizedBox(height: 10),
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+                  onPressed: _busy.contains(p.id) ? null : () => _release(p),
+                  child: Text(context.t('release'), textAlign: TextAlign.center),
+                ),
               ]),
             ),
         ]);

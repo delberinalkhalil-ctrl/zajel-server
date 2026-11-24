@@ -56,11 +56,9 @@ class _Preview extends StatelessWidget {
               const SizedBox(height: 12),
               Text(context.t('letter_hint'), style: const TextStyle(fontSize: 16, height: 1.7, color: kInk)),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(flex: 2, child: LaunchButton(onPressed: () {}, label: context.t('catch_reply'), icon: Icons.reply)),
-                const SizedBox(width: 10),
-                Expanded(child: OutlinedButton(onPressed: () {}, child: Text(context.t('release')))),
-              ]),
+              LaunchButton(onPressed: () {}, label: context.t('catch_reply'), icon: Icons.reply),
+              const SizedBox(height: 10),
+              OutlinedButton(style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(46)), onPressed: () {}, child: Text(context.t('release'))),
             ]),
           ),
           const SizedBox(height: 8),
@@ -77,8 +75,30 @@ class _Preview extends StatelessWidget {
               ]),
             ),
           ),
-          const SizedBox(height: 8),
-          LaunchButton(onPressed: () {}, label: context.t('launch')),
+          LetterCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(context.t('new_letter'), style: const TextStyle(fontFamily: kTitleFont, fontWeight: FontWeight.w800, fontSize: 20, color: kInk)),
+              TextField(
+                minLines: 2, maxLines: 3,
+                style: const TextStyle(color: kInk),
+                decoration: InputDecoration(
+                  hintText: context.t('letter_hint'),
+                  enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: kParchmentLine)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(value: false, icon: const Icon(Icons.air), label: Text(context.t('speed_normal'))),
+                  ButtonSegment(value: true, icon: const Icon(Icons.bolt), label: Text(context.t('speed_fast'))),
+                ],
+                selected: const {false},
+                onSelectionChanged: (_) {},
+              ),
+              const SizedBox(height: 16),
+              LaunchButton(onPressed: () {}, label: context.t('launch')),
+            ]),
+          ),
         ]),
       );
 }
@@ -88,7 +108,7 @@ void main() {
 
   for (final lang in ['ar', 'de']) {
     testWidgets('night airmail preview ($lang)', (tester) async {
-      tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+      tester.view.physicalSize = const Size(390 * 2, 1100 * 2);
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(MaterialApp(
