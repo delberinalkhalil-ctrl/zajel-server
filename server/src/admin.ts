@@ -2,7 +2,8 @@
 // and every action and every chat a moderator opens is written to adminLog.
 //
 // Roles: reviewer (sees reports and stats), mod (also opens reported chats and acts), admin (also roles,
-// announcements, errors and backups). An account is an admin if its email is in ADMIN_EMAILS, or by admins/{uid}.
+// announcements, errors and backups). An account is an admin if its verified email is in ADMIN_EMAILS
+// (default: the app owner's email), or by a role in admins/{uid} given from the admin page.
 import { getAuth } from 'firebase-admin/auth';
 import { db, FieldValue, requireUid, Timestamp, UserDoc } from './common';
 import { env, HttpsError, onCall } from './runtime';
@@ -18,8 +19,8 @@ export const ROLES = Object.keys(RANK) as Role[];
 export async function roleOf(uid: string): Promise<{ role: Role | null; email: string }> {
   const [user, doc] = await Promise.all([getAuth().getUser(uid).catch(() => null), db().doc(`admins/${uid}`).get()]);
   const email = (user?.email ?? '').toLowerCase();
-  const envAdmins = env('ADMIN_EMAILS').toLowerCase().split(/[,\s]+/).filter(Boolean);
-  if (email && user?.emailVerified !== false && envAdmins.includes(email)) return { role: 'admin', email };
+  const envAdmins = env('ADMIN_EMAILS', 'delberinalkhalil@gmail.com').toLowerCase().split(/[,\s]+/).filter(Boolean);
+  if (email && user?.emailVerified === true && envAdmins.includes(email)) return { role: 'admin', email };
   const r = doc.data()?.role as Role | undefined;
   return { role: r && r in RANK ? r : null, email };
 }

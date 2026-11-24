@@ -1599,8 +1599,8 @@ var ROLES = Object.keys(RANK);
 async function roleOf(uid) {
   const [user, doc] = await Promise.all([(0, import_auth2.getAuth)().getUser(uid).catch(() => null), db().doc(`admins/${uid}`).get()]);
   const email = (user?.email ?? "").toLowerCase();
-  const envAdmins = env("ADMIN_EMAILS").toLowerCase().split(/[,\s]+/).filter(Boolean);
-  if (email && user?.emailVerified !== false && envAdmins.includes(email)) return { role: "admin", email };
+  const envAdmins = env("ADMIN_EMAILS", "delberinalkhalil@gmail.com").toLowerCase().split(/[,\s]+/).filter(Boolean);
+  if (email && user?.emailVerified === true && envAdmins.includes(email)) return { role: "admin", email };
   const r2 = doc.data()?.role;
   return { role: r2 && r2 in RANK ? r2 : null, email };
 }
