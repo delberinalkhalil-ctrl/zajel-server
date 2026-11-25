@@ -281,6 +281,52 @@ window.createGlobe3D = function () {
   const birds = [makeBird(), makeBird(), makeBird()]; birds.forEach(b => { b.g.visible = false; scene.add(b.g); });
   const perch = makeBird(); scene.add(perch.g);
 
+  /* ---------- real 3D pigeons (glTF, birds.js) ----------
+   * A flying dove with a wing-flap clip for routes, and a standing pigeon for the perch. Both share one geometry
+   * per kind; the colour (white, black, gold, blue) swaps the texture. Until they load, the drawn bird above is used. */
+  const BIRD = { ready: false, dove: null, pigeon: null, mats: {}, color: 'white' };
+  function b64buf(s) { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u.buffer; }
+  function birdMat(fam, color) {
+    const key = fam + ':' + color; if (BIRD.mats[key]) return BIRD.mats[key];
+    const sk = (window.ZAJEL_BIRDS.skins[color] || window.ZAJEL_BIRDS.skins.white)[fam];
+    const tex = new T.TextureLoader().load(sk.tex); tex.flipY = false; tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+    const m = new T.MeshStandardMaterial({ map: tex, metalness: sk.metal, roughness: sk.rough, side: T.DoubleSide, envMapIntensity: .8 });
+    if (fam === 'dove') { m.alphaTest = .26; } else { m.emissiveMap = tex; m.emissive = new T.Color(1, 1, 1).multiplyScalar(sk.emis * .55); }
+    return (BIRD.mats[key] = m);
+  }
+  function fit(fam, root) {
+    root.updateMatrixWorld(true);
+    const b = new T.Box3().setFromObject(root), sz = b.getSize(V(0, 0, 0)), c = b.getCenter(V(0, 0, 0));
+    // Same size as the drawn bird: a 3.6 wingspan for the flying dove, a 2.5 body for the standing pigeon (feet at -0.62).
+    const k = fam === 'dove' ? 3.6 / sz.x : 2.5 / sz.z;
+    return { k, off: fam === 'dove' ? V(-c.x * k, -c.y * k, -c.z * k) : V(-c.x * k, -.62 - b.min.y * k, -c.z * k) };
+  }
+  function makeModel(fam) {
+    const src = BIRD[fam], inner = T.SkeletonUtils.clone(src.gltf.scene), g = new T.Group();
+    inner.scale.setScalar(src.fit.k); inner.position.copy(src.fit.off); g.add(inner);
+    const meshes = []; inner.traverse(o => { if (o.isMesh) { o.frustumCulled = false; meshes.push(o); } });
+    const mixer = new T.AnimationMixer(inner);
+    if (src.gltf.animations[0]) { const a = mixer.clipAction(src.gltf.animations[0]); a.timeScale = fam === 'dove' ? 1.5 : .8; a.play(); }
+    if (fam === 'dove') { // the letter, held below the beak
+      const env = new T.Mesh(new T.BoxGeometry(.62, .38, .014), [M.paper, M.paper, M.paper, M.paper, M.envFront, M.envBack]);
+      env.position.set(0, -.28, .78); env.rotation.set(Math.PI / 2 - .3, 0, .1); g.add(env);
+    }
+    const o = { g, mixer, color: '', setColor(c) { if (c === o.color) return; o.color = c; meshes.forEach(m => m.material = birdMat(fam, c)); } };
+    o.setColor(BIRD.color); return o;
+  }
+  const real = { fly: [], perch: null, last: 0 };
+  (function loadBirds() {
+    const Z = window.ZAJEL_BIRDS; if (!Z || !T.GLTFLoader || !T.SkeletonUtils) return;
+    const L = new T.GLTFLoader(); let n = 0;
+    ['dove', 'pigeon'].forEach(fam => L.parse(b64buf(Z[fam]), '', gltf => {
+      BIRD[fam] = { gltf, fit: fit(fam, gltf.scene) };
+      if (++n < 2) return;
+      real.fly = [makeModel('dove'), makeModel('dove'), makeModel('dove')]; real.fly.forEach(b => { b.g.visible = false; scene.add(b.g); });
+      real.perch = makeModel('pigeon'); scene.add(real.perch.g);
+      BIRD.ready = true;
+    }, e => console.warn('bird model', e)));
+  })();
+
   function route(f) {
     if (routes.has(f)) return routes.get(f);
     const k = Math.max(.35, Math.min(1, f.km / 9000)), alt = t => .014 + .09 * k * Math.sin(Math.PI * t);
@@ -328,6 +374,12 @@ window.createGlobe3D = function () {
   function frame(now, st) {
     st0 = st;
     if (!wrap) return;
+    const dt = Math.min(.1, Math.max(0, (now - (real.last || now)) / 1000)); real.last = now;
+    if (BIRD.ready) {
+      BIRD.color = st.color || 'white';
+      real.fly.forEach(b => { b.setColor(BIRD.color); b.mixer.update(dt); });
+      real.perch.setColor(BIRD.color); real.perch.mixer.update(dt);
+    }
     const W = wrap.clientWidth, H = wrap.clientHeight; if (!W || !H) return;
     if (size[0] !== W || size[1] !== H) { R.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix(); size = [W, H]; }
     const home = st.home.c; place(homePin, home[0], home[1]);
@@ -337,18 +389,20 @@ window.createGlobe3D = function () {
     routes.forEach((o, f) => { if (!live.has(f)) { scene.remove(o.dash, o.tube, o.dp); o.dash.geometry.dispose(); o.tube.geometry.dispose(); routes.delete(f); } });
     let lead = null;
     st.flights.forEach((f, i) => {
-      const o = route(f), p = f.p, b = birds[i];
+      const o = route(f), p = f.p, b = BIRD.ready ? real.fly[i] : birds[i];
+      if (BIRD.ready) birds[i].g.visible = false;
       o.tube.geometry.setDrawRange(0, Math.floor(p * 200) * 6 * 6);
       const B = o.P(p), Fw = o.P(p + .003).sub(B).normalize(), U = B.clone().normalize();
       const up = U.clone().sub(Fw.clone().multiplyScalar(U.dot(Fw))).normalize(), rt = up.clone().cross(Fw).normalize();
       b.g.visible = true; b.g.position.copy(B).addScaledVector(up, Math.sin(now * .028) * .0015);
       b.g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(rt, up, Fw));
-      b.pose(now * .028 + i, false);
+      if (!BIRD.ready) b.pose(now * .028 + i, false);
       const cd = cam.position.distanceTo(B); b.g.scale.setScalar(.018 * (1 + Math.max(0, cd - .25) * (i ? 1.4 : 1.1)));
       label('d' + i, ll(f.to.c[0], f.to.c[1], 1.05), f.reveal ? f.to.city : '؟', 'dst', W, H, true);
       if (!i) lead = { B, Fw, up, p, rt };
     });
-    birds.forEach((b, i) => { if (i >= st.flights.length) b.g.visible = false; });
+    birds.forEach((b, i) => { if (i >= st.flights.length || BIRD.ready) b.g.visible = false; });
+    real.fly.forEach((b, i) => { if (i >= st.flights.length) b.g.visible = false; });
     // landed pins
     st.landed.forEach(l => {
       let pn = landPins.get(l); if (!pn) { pn = pin(0x3b82f6); place(pn, l.c[0], l.c[1]); scene.add(pn); landPins.set(l, pn); }
@@ -364,14 +418,17 @@ window.createGlobe3D = function () {
     } else ripple.visible = false;
     // perched bird
     const restC = recent ? recent.c : home, restN = ll(restC[0], restC[1], 1);
-    perch.g.visible = !st.flights.length;
-    if (perch.g.visible) {
+    const pb = BIRD.ready ? real.perch : perch;
+    perch.g.visible = !st.flights.length && !BIRD.ready;
+    if (real.perch) real.perch.g.visible = !st.flights.length && BIRD.ready;
+    if (!st.flights.length) {
       const east = Y.clone().cross(restN).normalize(), up = restN.clone();
-      perch.pose(0, true);
+      if (!BIRD.ready) perch.pose(0, true);
       const sc = .016 * (1 + Math.max(0, cam.position.distanceTo(restN) - .3) * 1.8);
-      perch.g.scale.setScalar(sc);
-      perch.g.position.copy(restN).multiplyScalar(1 + .045 + .62 * sc + Math.abs(Math.sin(now / 420)) * .1 * sc);
-      perch.g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(up.clone().cross(east).normalize(), up, east));
+      pb.g.scale.setScalar(sc);
+      // the real pigeon walks in place, so it stays on the ground; the drawn one hops
+      pb.g.position.copy(restN).multiplyScalar(1 + .045 + .62 * sc + (BIRD.ready ? 0 : Math.abs(Math.sin(now / 420)) * .1 * sc));
+      pb.g.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(up.clone().cross(east).normalize(), up, east));
     }
     label('home', ll(home[0], home[1], 1), st.home.label || st.home.city, 'home', W, H, true);
     labEls.forEach((el, k) => { if (!el.dataset.seen) el.style.display = 'none'; });

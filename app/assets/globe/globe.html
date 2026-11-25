@@ -35,6 +35,8 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
 <script src="topojson.min.js"></script>
 <script src="world.js"></script>
 <script src="three.min.js"></script>
+<script src="gltf.min.js"></script>
+<script src="birds.js"></script>
 <script src="sounds.js"></script>
 <script src="earth_textures.js"></script>
 <script src="globe3d.js"></script>
@@ -56,6 +58,7 @@ html,body{margin:0;height:100%;background:#02060f;overflow:hidden;-webkit-user-s
     set: function (s) {
       st.home = { c: [s.home.lon, s.home.lat], city: s.home.label, label: s.home.label };
       st.effects = s.effects || 'full';
+      st.color = s.color || 'white';
       var keep = {};
       st.flights = (s.flights || []).map(function (f) {
         keep[f.id] = 1;

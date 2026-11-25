@@ -421,3 +421,14 @@ T.update({
 "challenge_done": "挑战完成！🎉",
 "did_you_know": "你知道吗？",
 })
+
+# 3D pigeons
+T.update({
+"pigeon_color": "我的信鸽颜色",
+"color_white": "白色",
+"color_black": "黑色",
+"color_blue": "蓝色",
+"color_gold": "金色",
+"credits": "致谢",
+"credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: [SOURCE AND LICENCE TO CONFIRM]\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+})

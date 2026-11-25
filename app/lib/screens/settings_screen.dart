@@ -257,6 +257,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) => v == null ? null : _update({'settings': {'effects': v}}),
               ),
             ),
+            ListTile(
+              title: Text(context.t('pigeon_color')),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Wrap(spacing: 12, runSpacing: 8, children: [
+                  for (final c in const [('white', Color(0xFFF2F2F2)), ('black', Color(0xFF1E1E22)), ('blue', Color(0xFF2E5BD8)), ('gold', Color(0xFFD9A93A))])
+                    Semantics(
+                      button: true,
+                      selected: me.pigeonColor == c.$1,
+                      label: context.t('color_${c.$1}'),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () {
+                          if (c.$1 == 'gold' && !vip) {
+                            showInfo(context, context.t('vip_locked'));
+                            return;
+                          }
+                          _update({'settings': {'pigeonColor': c.$1}});
+                        },
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: c.$2,
+                            border: Border.all(color: me.pigeonColor == c.$1 ? kGold : Colors.white24, width: me.pigeonColor == c.$1 ? 3 : 1),
+                          ),
+                          child: c.$1 == 'gold' && !vip
+                              ? const Icon(Icons.lock, size: 18, color: kNight)
+                              : me.pigeonColor == c.$1
+                                  ? Icon(Icons.check, size: 20, color: c.$1 == 'white' ? kNight : Colors.white)
+                                  : null,
+                        ),
+                      ),
+                    ),
+                ]),
+              ),
+            ),
           ]),
           section(context.t('notifications'), [
             sw('notif', context.t('notifications'), context.t('notifications_sub')),
@@ -358,6 +396,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           section(context.t('account'), [
             ListTile(title: Text(context.t('privacy')), trailing: const Icon(Icons.open_in_new), onTap: () => launchUrl(Uri.parse(Cfg.privacyUrl))),
             ListTile(title: Text(context.t('terms')), trailing: const Icon(Icons.open_in_new), onTap: () => launchUrl(Uri.parse(Cfg.termsUrl))),
+            ListTile(
+              title: Text(context.t('credits')),
+              trailing: const Icon(Icons.info_outline),
+              onTap: () => showAboutDialog(
+                context: context,
+                applicationName: 'Zajel',
+                children: [Text(context.t('credits_body'), textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 13, height: 1.5))],
+              ),
+            ),
             ListTile(title: Text(context.t('contact_support')), subtitle: Text(Cfg.supportEmail, textDirection: TextDirection.ltr), onTap: () => launchUrl(Uri.parse('mailto:${Cfg.supportEmail}'))),
             ListTile(title: Text(context.t('sign_out'), style: const TextStyle(color: kRed)), leading: const Icon(Icons.logout, color: kRed), onTap: _signOut),
             ListTile(

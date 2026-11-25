@@ -11,9 +11,11 @@ import { normalize } from './moderation';
 
 const SETTING_KEYS = [
   'notif', 'sound', 'showCity', 'calls', 'ghost', 'hideRead', 'badge', 'priority',
-  'notifPigeon', 'notifMessage', 'notifAccept', 'hidePreview', 'showAchievements', 'effects',
+  'notifPigeon', 'notifMessage', 'notifAccept', 'hidePreview', 'showAchievements', 'effects', 'pigeonColor',
 ] as const;
 const EFFECTS = ['full', 'light', 'off'];
+/** Colour of the 3D pigeon on the globe. Gold is a VIP colour. */
+export const PIGEON_COLORS = ['white', 'black', 'blue', 'gold'];
 const VIP_ONLY = new Set(['ghost', 'hideRead', 'priority']);
 
 function cleanName(v: unknown) {
@@ -90,6 +92,7 @@ export const updateProfile = onCall(async req => {
       const v = d.settings[k];
       if (k === 'calls') { if (!['all', 'ten', 'none'].includes(v)) bad('bad_setting'); }
       else if (k === 'effects') { if (!EFFECTS.includes(v)) bad('bad_setting'); }
+      else if (k === 'pigeonColor') { if (!PIGEON_COLORS.includes(v)) bad('bad_setting'); if (v === 'gold' && !isVip(u)) bad('vip_only'); }
       else if (typeof v !== 'boolean') bad('bad_setting');
       if (VIP_ONLY.has(k) && v === true && !isVip(u)) bad('vip_only');
       priv[`settings.${k}`] = v;

@@ -421,3 +421,14 @@ T.update({
 "challenge_done": "أكملت التحدي! 🎉",
 "did_you_know": "هل تعلم؟",
 })
+
+# 3D pigeons
+T.update({
+"pigeon_color": "لون حمامتي",
+"color_white": "أبيض",
+"color_black": "أسود",
+"color_blue": "أزرق",
+"color_gold": "ذهبي",
+"credits": "حقوق التصاميم",
+"credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: [SOURCE AND LICENCE TO CONFIRM]\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+})

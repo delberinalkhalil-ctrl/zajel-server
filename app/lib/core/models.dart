@@ -62,6 +62,11 @@ class Me {
   String get calls => settings['calls'] is String ? settings['calls'] as String : 'all';
   /// Globe animation level: full, light (fewer particles, no clouds) or off (still picture).
   String get effects => settings['effects'] is String ? settings['effects'] as String : 'full';
+  /// Colour of my 3D pigeon (white, black, blue, gold). Gold only while VIP.
+  String get pigeonColor {
+    final c = settings['pigeonColor'] is String ? settings['pigeonColor'] as String : 'white';
+    return c == 'gold' && !vip ? 'white' : c;
+  }
   /// Optional, private: used only to match pigeons when [genderMatch] is on.
   String get gender => _s(d['gender']);
   bool get genderMatch => d['genderMatch'] == true;

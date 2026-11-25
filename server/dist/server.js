@@ -307,9 +307,11 @@ var SETTING_KEYS = [
   "notifAccept",
   "hidePreview",
   "showAchievements",
-  "effects"
+  "effects",
+  "pigeonColor"
 ];
 var EFFECTS = ["full", "light", "off"];
+var PIGEON_COLORS = ["white", "black", "blue", "gold"];
 var VIP_ONLY = /* @__PURE__ */ new Set(["ghost", "hideRead", "priority"]);
 function cleanName2(v) {
   const n = normalize(v).replace(/\n/g, " ");
@@ -400,6 +402,9 @@ var updateProfile = onCall(async (req) => {
         if (!["all", "ten", "none"].includes(v)) bad("bad_setting");
       } else if (k === "effects") {
         if (!EFFECTS.includes(v)) bad("bad_setting");
+      } else if (k === "pigeonColor") {
+        if (!PIGEON_COLORS.includes(v)) bad("bad_setting");
+        if (v === "gold" && !isVip(u)) bad("vip_only");
       } else if (typeof v !== "boolean") bad("bad_setting");
       if (VIP_ONLY.has(k) && v === true && !isVip(u)) bad("vip_only");
       priv[`settings.${k}`] = v;

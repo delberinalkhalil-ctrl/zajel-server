@@ -414,5 +414,12 @@
  "challenge_body": "इस महीने {n} अलग-अलग देशों से चिट्ठियों का आदान-प्रदान करें।",
  "challenge_progress": "{max} में से {n} देश",
  "challenge_done": "चुनौती पूरी! 🎉",
- "did_you_know": "क्या आप जानते हैं?"
+ "did_you_know": "क्या आप जानते हैं?",
+ "pigeon_color": "मेरे कबूतर का रंग",
+ "color_white": "सफ़ेद",
+ "color_black": "काला",
+ "color_blue": "नीला",
+ "color_gold": "सुनहरा",
+ "credits": "आभार",
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: [SOURCE AND LICENCE TO CONFIRM]\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
 }

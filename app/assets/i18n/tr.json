@@ -414,5 +414,12 @@
  "challenge_body": "Bu ay {n} farklı ülkeyle mektuplaş.",
  "challenge_progress": "{max} ülkeden {n}",
  "challenge_done": "Görev tamam! 🎉",
- "did_you_know": "Biliyor muydun?"
+ "did_you_know": "Biliyor muydun?",
+ "pigeon_color": "Güvercinimin rengi",
+ "color_white": "Beyaz",
+ "color_black": "Siyah",
+ "color_blue": "Mavi",
+ "color_gold": "Altın",
+ "credits": "Emeği geçenler",
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: [SOURCE AND LICENCE TO CONFIRM]\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
 }

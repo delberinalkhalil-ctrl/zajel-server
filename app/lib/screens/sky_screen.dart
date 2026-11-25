@@ -156,6 +156,7 @@ class _SkyScreenState extends State<SkyScreen> {
                   flights: flights,
                   landed: landed,
                   effects: me.effects,
+                  color: me.pigeonColor,
                 ),
               ),
               if (inAir.isNotEmpty && inAir.first.status == 'flying')
