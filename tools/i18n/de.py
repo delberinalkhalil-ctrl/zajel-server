@@ -432,3 +432,19 @@ T.update({
 "credits": "Danksagungen",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "Schreib einen Brief und lass die Taube deinen Freund wählen",
+"onb_1_b": "Dein Brief fliegt zu jemandem, den du nicht kennst, irgendwo auf der Welt. Fängt er ihn, beginnt ein Gespräch.",
+"onb_2_t": "Jeder Brief kommt in der Sprache des Lesers an",
+"onb_2_b": "Briefe und Chats werden automatisch übersetzt: Du schreibst in deiner Sprache, der andere liest in seiner.",
+"onb_3_t": "Du hast die Kontrolle",
+"onb_3_b": "Niemand sieht deine Nummer oder E-Mail. Du kannst jederzeit blockieren und melden; Meldungen werden geprüft.",
+"onb_next": "Weiter",
+"onb_start": "Jetzt starten",
+"onb_skip": "Überspringen",
+"sent_anim": "Dein Brief ist unterwegs!",
+"time_left": "Noch {h} Std., bevor sie weiterfliegt",
+"landed_toast": "Eine neue Taube ist bei dir gelandet",
+})

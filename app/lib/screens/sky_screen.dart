@@ -9,6 +9,7 @@ import '../core/models.dart';
 import '../core/occasions.dart';
 import '../core/session.dart';
 import '../widgets/common.dart';
+import '../widgets/send_animation.dart';
 import '../widgets/globe_view.dart';
 
 /// Write a letter, choose where and how fast, and watch the pigeon fly on the 3D globe.
@@ -77,6 +78,8 @@ class _SkyScreenState extends State<SkyScreen> {
       _text.clear();
       if (!mounted) return;
       FocusScope.of(context).unfocus();
+      if (me.effects != 'off') await playSendAnimation(context);
+      if (!mounted) return;
       _scroll.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
       showInfo(context, r['status'] == 'waiting' ? context.t('sent_waiting') : context.t(Cfg.storeEnabled ? 'sent_flying' : 'sent_flying_free', {'cost': r['charged'] ?? 0}));
     } catch (e) {

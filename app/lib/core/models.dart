@@ -51,6 +51,7 @@ class Me {
   LatLon get loc => LatLon.from(d['loc']) ?? const LatLon(0, 0);
   int get points => (d['points'] as num?)?.toInt() ?? 0;
   DateTime? get vipUntil => _ts(d['vipUntil']);
+  DateTime? get createdAt => _ts(d['createdAt']);
   bool get vip => vipUntil != null && vipUntil!.isAfter(DateTime.now());
   int get freeToday =>
       _s(d['freeDate']) == todayUtc() ? ((d['freeLeft'] as num?)?.toInt() ?? 0) : (Cfg.storeEnabled ? Cfg.freePerDay : Cfg.freeModeDailyPigeons);

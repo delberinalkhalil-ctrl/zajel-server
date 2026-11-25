@@ -432,3 +432,19 @@ T.update({
 "credits": "आभार",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "एक चिट्ठी लिखें, कबूतर आपका दोस्त चुनेगा",
+"onb_1_b": "आपकी चिट्ठी दुनिया में कहीं किसी अनजान व्यक्ति तक उड़ती है। अगर वह उसे पकड़ ले, तो आपकी बातचीत शुरू होती है।",
+"onb_2_t": "हर चिट्ठी पढ़ने वाले की भाषा में पहुँचती है",
+"onb_2_b": "चिट्ठियाँ और चैट अपने-आप अनुवाद होती हैं: आप अपनी भाषा में लिखते हैं, वे अपनी भाषा में पढ़ते हैं।",
+"onb_3_t": "नियंत्रण आपके हाथ में",
+"onb_3_b": "कोई आपका नंबर या ईमेल नहीं देखता। आप कभी भी ब्लॉक और रिपोर्ट कर सकते हैं; रिपोर्ट की समीक्षा होती है।",
+"onb_next": "आगे",
+"onb_start": "अभी शुरू करें",
+"onb_skip": "छोड़ें",
+"sent_anim": "आपकी चिट्ठी रवाना हो गई!",
+"time_left": "किसी और के पास उड़ने में {h} घंटे बाकी",
+"landed_toast": "आपके पास एक नया कबूतर उतरा है",
+})

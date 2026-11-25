@@ -421,5 +421,17 @@
  "color_blue": "آبی",
  "color_gold": "طلایی",
  "credits": "اعتبارها",
- "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+ "onb_1_t": "نامه‌ای بنویس و بگذار کبوتر دوستت را انتخاب کند",
+ "onb_1_b": "نامه‌ات به سوی کسی که نمی‌شناسی، جایی در دنیا پرواز می‌کند. اگر آن را بگیرد، گفتگویتان آغاز می‌شود.",
+ "onb_2_t": "هر نامه به زبان خواننده‌اش می‌رسد",
+ "onb_2_b": "نامه‌ها و گفتگوها خودکار ترجمه می‌شوند: تو به زبان خودت می‌نویسی و او به زبان خودش می‌خواند.",
+ "onb_3_t": "اختیار با توست",
+ "onb_3_b": "هیچ‌کس شماره یا ایمیلت را نمی‌بیند. هر زمان می‌توانی مسدود یا گزارش کنی و گزارش‌ها بررسی می‌شوند.",
+ "onb_next": "بعدی",
+ "onb_start": "شروع کن",
+ "onb_skip": "رد شدن",
+ "sent_anim": "نامه‌ات در راه است!",
+ "time_left": "{h} ساعت مانده تا پیش کس دیگری پرواز کند",
+ "landed_toast": "کبوتر تازه‌ای پیشت نشست"
 }

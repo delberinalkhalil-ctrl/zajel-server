@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/api.dart';
@@ -28,6 +29,23 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late final Stream<List<Pigeon>> _inbox = Api.inbox();
+  Set<String>? _seenLetters;
+
+  /// A new letter landed while the app is open: a double tap of vibration and a short note (not on first load).
+  void _onInbox(List<Pigeon>? list) {
+    if (list == null) return;
+    final ids = list.map((p) => p.id).toSet();
+    final fresh = _seenLetters != null && ids.difference(_seenLetters!).isNotEmpty;
+    _seenLetters = ids;
+    if (!fresh) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      HapticFeedback.heavyImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 140));
+      HapticFeedback.heavyImpact();
+      if (mounted && _tab != 1) showInfo(context, context.t('landed_toast'));
+    });
+  }
   late final Stream<List<ChatInfo>> _chats = Api.chats();
   late final Stream<Profile> _myProfile = Api.profile(Api.uid);
   late final Stream<Map<String, dynamic>?> _announce = Api.announcement();
@@ -184,6 +202,7 @@ class _HomeShellState extends State<HomeShell> {
           stream: _chats,
           builder: (_, chats) {
             final nIn = inbox.data?.length ?? 0;
+            _onInbox(inbox.data);
             final nCh = (chats.data ?? const <ChatInfo>[]).fold<int>(0, (a, c) => a + c.unread(Api.uid));
             return FloatingNav(
               index: _tab,

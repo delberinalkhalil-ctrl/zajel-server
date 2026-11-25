@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zajel/core/i18n.dart';
 import 'package:zajel/core/models.dart';
 import 'package:zajel/core/occasions.dart';
+import 'package:zajel/screens/onboarding_screen.dart';
 import 'package:zajel/screens/sky_screen.dart' show FilterSheet, JourneyStages;
 import 'package:zajel/widgets/common.dart';
 
@@ -64,6 +65,26 @@ void main() {
     expect(Occasions.near(DateTime(2026, 10, 8)).map((o) => o.id), contains('post'));
     expect(Occasions.near(DateTime(2026, 12, 31)).map((o) => o.id), contains('new_year'));
     expect(Occasions.near(DateTime(2026, 6, 15)), isEmpty);
+  });
+
+  testWidgets('onboarding preview (ar)', (tester) async {
+    tester.view.physicalSize = const Size(390 * 2, 844 * 2);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    var done = false;
+    await tester.pumpWidget(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: zajelTheme(),
+      locale: const Locale('ar'),
+      supportedLocales: L10n.supported,
+      localizationsDelegates: L10n.delegates,
+      home: OnboardingScreen(onDone: () => done = true),
+    ));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+    await tester.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/onboarding_ar.png'));
+    await tester.tap(find.byType(TextButton).first);
+    expect(done, isTrue);
   });
 
   for (final lang in ['ar', 'en']) {

@@ -9,6 +9,8 @@ class AppState extends ChangeNotifier {
   Locale? locale;
   bool autoTranslate = true;
   bool showOriginal = false;
+  /// The three welcome pages were seen on this device.
+  bool onboarded = false;
 
   Future<void> init() async {
     _p = await SharedPreferences.getInstance();
@@ -16,6 +18,7 @@ class AppState extends ChangeNotifier {
     if (l != null && Cfg.langs.contains(l)) locale = Locale(l);
     autoTranslate = _p.getBool('autoTranslate') ?? true;
     showOriginal = _p.getBool('showOriginal') ?? false;
+    onboarded = _p.getBool('onboarded') ?? false;
   }
 
   bool get hasChosenLanguage => _p.getString('lang') != null;
@@ -30,6 +33,12 @@ class AppState extends ChangeNotifier {
   Future<void> setAutoTranslate(bool v) async {
     autoTranslate = v;
     await _p.setBool('autoTranslate', v);
+    notifyListeners();
+  }
+
+  Future<void> setOnboarded() async {
+    onboarded = true;
+    await _p.setBool('onboarded', true);
     notifyListeners();
   }
 

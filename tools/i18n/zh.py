@@ -432,3 +432,19 @@ T.update({
 "credits": "致谢",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "写一封信，让信鸽为你挑选朋友",
+"onb_1_b": "你的信会飞向世界某处一位陌生人。对方接住后，你们就开始聊天。",
+"onb_2_t": "每封信都以读者的语言送达",
+"onb_2_b": "信件和聊天自动翻译：你用自己的语言写，对方用他的语言读。",
+"onb_3_t": "一切由你掌控",
+"onb_3_b": "没有人能看到你的号码或邮箱。你随时可以屏蔽和举报，举报会被审核。",
+"onb_next": "下一步",
+"onb_start": "开始",
+"onb_skip": "跳过",
+"sent_anim": "你的信出发了！",
+"time_left": "还剩 {h} 小时，之后它会飞向别人",
+"landed_toast": "一只新信鸽落在你这里",
+})

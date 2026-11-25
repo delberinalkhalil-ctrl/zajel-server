@@ -9,6 +9,7 @@ import 'core/session.dart';
 import 'screens/auth_screen.dart';
 import 'screens/home_shell.dart';
 import 'screens/lock_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/profile_setup_screen.dart';
 import 'widgets/common.dart';
 
@@ -78,6 +79,9 @@ class _AuthGateState extends State<_AuthGate> {
       _adoptedFor = s.user!.uid;
       if (!app.hasChosenLanguage) WidgetsBinding.instance.addPostFrameCallback((_) => app.setLanguage(me.lang));
     }
+    // Welcome pages for new accounts only (existing users updating the app are not shown them).
+    final isNew = me.createdAt == null || DateTime.now().difference(me.createdAt!).inDays < 2;
+    if (isNew && !context.watch<AppState>().onboarded) return OnboardingScreen(onDone: app.setOnboarded);
     return HomeShell(key: ValueKey(s.user!.uid));
   }
 }

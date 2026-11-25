@@ -1,5 +1,8 @@
 /// Business rules shown in the app. The server (functions/src/config.ts) is the authority.
 class Cfg {
+  /// An uncaught pigeon moves on to someone else after this long (server: LANDED_AUTO_RELEASE_H).
+  static const landedHours = 24;
+
   /// Zajel API server (server/ folder), hosted on your own Node.js hosting.
   static const apiBase = 'https://bawer-kalash.com/zajel-api';
 

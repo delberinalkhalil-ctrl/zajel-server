@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../core/api.dart';
 import '../core/app_state.dart';
+import '../core/config.dart';
 import '../core/i18n.dart';
 import '../core/models.dart';
 import '../core/session.dart';
@@ -86,6 +87,7 @@ class _InboxScreenState extends State<InboxScreen> {
                   ),
                   if (p.fromCountry.isNotEmpty) Postmark(code: p.fromCountry, color: i.isEven ? kRed : kBlue, angle: i.isEven ? -.2 : .14),
                 ]),
+                if (p.landedAt != null) _TimeLeft(landedAt: p.landedAt!),
                 const SizedBox(height: 12),
                 Text(app.autoTranslate ? p.textFor(me.lang) : p.text, style: const TextStyle(fontSize: 16, height: 1.7, color: kInk)),
                 if (app.showOriginal || _orig.contains(p.id))
@@ -166,4 +168,25 @@ class _CountryFactState extends State<CountryFact> {
           );
         },
       );
+}
+
+
+/// How long the letter stays before the pigeon takes it on to someone else.
+class _TimeLeft extends StatelessWidget {
+  const _TimeLeft({required this.landedAt});
+  final DateTime landedAt;
+  @override
+  Widget build(BuildContext context) {
+    final left = landedAt.add(const Duration(hours: Cfg.landedHours)).difference(DateTime.now());
+    final h = left.inMinutes <= 0 ? 0 : (left.inMinutes / 60).ceil();
+    final urgent = h <= 6;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(children: [
+        Icon(Icons.hourglass_bottom, size: 15, color: urgent ? kRedDeep : kInkSoft),
+        const SizedBox(width: 4),
+        Text(context.t('time_left', {'h': h}), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: urgent ? kRedDeep : kInkSoft)),
+      ]),
+    );
+  }
 }

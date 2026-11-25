@@ -432,3 +432,19 @@ T.update({
 "credits": "Spasî",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "Nameyekê binivîse, bila kevok hevalê te hilbijêre",
+"onb_1_b": "Nameya te difire cem kesekî ku tu nas nakî, li derekê cîhanê. Ger ew wê bigire, axaftinek dest pê dike.",
+"onb_2_t": "Her name bi zimanê xwendevanê xwe digihîje",
+"onb_2_b": "Name û axaftin bixweber têne wergerandin: tu bi zimanê xwe dinivîsî, ew bi yê xwe dixwîne.",
+"onb_3_t": "Biryar di destê te de ye",
+"onb_3_b": "Kes hejmar an e-nameya te nabîne. Tu dikarî her dem asteng bikî û gilî bikî; gilî têne nirxandin.",
+"onb_next": "Pêş",
+"onb_start": "Niha dest pê bike",
+"onb_skip": "Derbas bike",
+"sent_anim": "Nameya te ket rê!",
+"time_left": "{h} saet maye berî ku bifire cem yekî din",
+"landed_toast": "Kevokeke nû li cem te daket",
+})

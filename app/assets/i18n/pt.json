@@ -421,5 +421,17 @@
  "color_blue": "Azul",
  "color_gold": "Dourado",
  "credits": "Créditos",
- "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+ "onb_1_t": "Escreva uma carta e deixe o pombo escolher seu amigo",
+ "onb_1_b": "Sua carta voa até alguém que você não conhece, em algum lugar do mundo. Se a pessoa a pegar, vocês começam a conversar.",
+ "onb_2_t": "Cada carta chega no idioma de quem a lê",
+ "onb_2_b": "Cartas e conversas são traduzidas automaticamente: você escreve no seu idioma e o outro lê no dele.",
+ "onb_3_t": "Você está no controle",
+ "onb_3_b": "Ninguém vê seu número ou e-mail. Você pode bloquear e denunciar a qualquer momento; as denúncias são revisadas.",
+ "onb_next": "Próximo",
+ "onb_start": "Começar",
+ "onb_skip": "Pular",
+ "sent_anim": "Sua carta está a caminho!",
+ "time_left": "Faltam {h} h antes de voar para outra pessoa",
+ "landed_toast": "Um novo pombo pousou com você"
 }

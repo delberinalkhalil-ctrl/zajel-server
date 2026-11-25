@@ -432,3 +432,19 @@ T.update({
 "credits": "حقوق التصاميم",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "اكتب رسالة، ودع الحمامة تختار صديقك",
+"onb_1_b": "تطير رسالتك إلى شخص لا تعرفه في مكان ما من العالم. إذا التقطها، تبدأ بينكما محادثة.",
+"onb_2_t": "كل رسالة تصل بلغة صاحبها",
+"onb_2_b": "نترجم الرسائل والمحادثات تلقائياً، فتكتب بلغتك ويقرؤها الآخر بلغته.",
+"onb_3_t": "أنت من يقرّر",
+"onb_3_b": "لا يرى أحد رقمك أو بريدك. يمكنك الحظر والإبلاغ في أي وقت، ونراجع البلاغات باستمرار.",
+"onb_next": "التالي",
+"onb_start": "ابدأ الآن",
+"onb_skip": "تخطٍّ",
+"sent_anim": "انطلقت رسالتك!",
+"time_left": "باقي {h} س قبل أن تطير لغيرك",
+"landed_toast": "حطّت عندك حمامة جديدة",
+})

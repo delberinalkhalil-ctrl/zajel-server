@@ -432,3 +432,19 @@ T.update({
 "credits": "Créditos",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "Escribe una carta y deja que la paloma elija a tu amigo",
+"onb_1_b": "Tu carta vuela hacia alguien que no conoces, en algún lugar del mundo. Si la atrapa, empezáis a hablar.",
+"onb_2_t": "Cada carta llega en el idioma de quien la lee",
+"onb_2_b": "Cartas y chats se traducen solos: escribes en tu idioma y la otra persona lee en el suyo.",
+"onb_3_t": "Tú tienes el control",
+"onb_3_b": "Nadie ve tu número ni tu correo. Puedes bloquear y denunciar en cualquier momento; revisamos las denuncias.",
+"onb_next": "Siguiente",
+"onb_start": "Empezar",
+"onb_skip": "Omitir",
+"sent_anim": "¡Tu carta va en camino!",
+"time_left": "Quedan {h} h antes de que vuele a otra persona",
+"landed_toast": "Una nueva paloma ha aterrizado contigo",
+})

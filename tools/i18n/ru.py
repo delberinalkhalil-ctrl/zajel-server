@@ -432,3 +432,19 @@ T.update({
 "credits": "Авторы",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "Напишите письмо, а голубь выберет вам друга",
+"onb_1_b": "Ваше письмо летит к незнакомому человеку где-то в мире. Если он его поймает, начнётся переписка.",
+"onb_2_t": "Каждое письмо приходит на языке читателя",
+"onb_2_b": "Письма и чаты переводятся автоматически: вы пишете на своём языке, собеседник читает на своём.",
+"onb_3_t": "Всё под вашим контролем",
+"onb_3_b": "Никто не видит ваш номер или почту. Вы можете заблокировать и пожаловаться в любой момент; жалобы проверяются.",
+"onb_next": "Далее",
+"onb_start": "Начать",
+"onb_skip": "Пропустить",
+"sent_anim": "Ваше письмо в пути!",
+"time_left": "Осталось {h} ч, потом оно улетит к другому",
+"landed_toast": "К вам прилетел новый голубь",
+})

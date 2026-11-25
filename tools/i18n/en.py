@@ -432,3 +432,19 @@ T.update({
 "credits": "Credits",
 "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
 })
+
+# onboarding and moments
+T.update({
+"onb_1_t": "Write a letter and let the pigeon pick your friend",
+"onb_1_b": "Your letter flies to someone you don’t know, somewhere in the world. If they catch it, you start a conversation.",
+"onb_2_t": "Every letter arrives in its reader’s language",
+"onb_2_b": "Letters and chats are translated automatically: you write in your language and they read in theirs.",
+"onb_3_t": "You’re in control",
+"onb_3_b": "No one sees your number or email. You can block and report at any time, and reports are reviewed.",
+"onb_next": "Next",
+"onb_start": "Start now",
+"onb_skip": "Skip",
+"sent_anim": "Your letter is on its way!",
+"time_left": "{h} h left before it flies on",
+"landed_toast": "A new pigeon has landed with you",
+})

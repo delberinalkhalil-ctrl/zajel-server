@@ -421,5 +421,17 @@
  "color_blue": "Mavi",
  "color_gold": "Altın",
  "credits": "Emeği geçenler",
- "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+ "onb_1_t": "Bir mektup yaz, güvercin arkadaşını seçsin",
+ "onb_1_b": "Mektubun dünyanın bir yerindeki tanımadığın birine uçar. Yakalarsa aranızda bir sohbet başlar.",
+ "onb_2_t": "Her mektup okuyanın dilinde ulaşır",
+ "onb_2_b": "Mektuplar ve sohbetler otomatik çevrilir: sen kendi dilinde yazarsın, o kendi dilinde okur.",
+ "onb_3_t": "Kontrol sende",
+ "onb_3_b": "Kimse numaranı veya e-postanı görmez. İstediğin zaman engelleyip şikâyet edebilirsin; şikâyetler incelenir.",
+ "onb_next": "İleri",
+ "onb_start": "Hemen başla",
+ "onb_skip": "Geç",
+ "sent_anim": "Mektubun yola çıktı!",
+ "time_left": "Başkasına uçmadan önce {h} saat kaldı",
+ "landed_toast": "Yanına yeni bir güvercin kondu"
 }

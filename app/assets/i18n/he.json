@@ -421,5 +421,17 @@
  "color_blue": "כחול",
  "color_gold": "זהב",
  "credits": "קרדיטים",
- "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain)."
+ "credits_body": "3D pigeon models:\n• Standing pigeon: \"Pigeon\" by kenchoo, based on \"Pigeon #1\" by ₦₥₵ ฿₵ (Sketchfab), licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0). Colours changed for Zajel.\n• Flying dove: \"Mourning Dove - in Flight\" by Oregon State University | Ecampus (Sketchfab), licensed under CC BY 4.0. Colours changed for Zajel.\n3D globe: three.js (MIT). Map data: Natural Earth (public domain).",
+ "onb_1_t": "כתבו מכתב, והיונה תבחר לכם חבר",
+ "onb_1_b": "המכתב שלכם עף לאדם שאינכם מכירים, אי שם בעולם. אם יתפוס אותו, תתחיל ביניכם שיחה.",
+ "onb_2_t": "כל מכתב מגיע בשפת הקורא",
+ "onb_2_b": "מכתבים וצ׳אטים מתורגמים אוטומטית: אתם כותבים בשפתכם והצד השני קורא בשפתו.",
+ "onb_3_t": "השליטה בידיים שלכם",
+ "onb_3_b": "אף אחד לא רואה את המספר או המייל שלכם. אפשר לחסום ולדווח בכל רגע, והדיווחים נבדקים.",
+ "onb_next": "הבא",
+ "onb_start": "להתחיל",
+ "onb_skip": "דילוג",
+ "sent_anim": "המכתב שלכם בדרך!",
+ "time_left": "נותרו {h} שעות לפני שתעוף הלאה",
+ "landed_toast": "יונה חדשה נחתה אצלכם"
 }
