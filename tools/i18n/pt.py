@@ -448,3 +448,22 @@ T.update({
 "time_left": "Faltam {h} h antes de voar para outra pessoa",
 "landed_toast": "Um novo pombo pousou com você",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "Apagar",
+"delete_chat": "Apagar conversa",
+"delete_chat_q": "Apagar a conversa com {name}?",
+"delete_chat_body": "A conversa e as mensagens vão sumir para você. Se a pessoa escrever de novo, ela volta só com as mensagens novas.",
+"chat_deleted": "Conversa apagada",
+"team_chat": "Equipe Zajel",
+"team_chat_sub": "Dúvidas, problemas e ideias",
+"team_chat_hint": "Respondemos no seu idioma",
+"team_chat_empty": "Escreva qualquer dúvida, problema ou ideia, e a equipe Zajel responde aqui no seu idioma.",
+"team_chat_write": "Escreva para a equipe Zajel",
+"gift_left": "+{n} de presente",
+"gift_title": "Um presente da equipe Zajel 🎁",
+"gift_pigeons": "{n} pombos extras, usados depois dos gratuitos do dia",
+"gift_vip": "VIP por {n} dias",
+"gift_points": "{n} pontos",
+})

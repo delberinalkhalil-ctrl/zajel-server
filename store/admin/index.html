@@ -79,7 +79,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const when = t => t ? new Date(t).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 const toast = m => { const t = $('#toast'); t.textContent = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 2500); };
 const REASONS = { spam: 'إزعاج', scam: 'احتيال', sexual: 'محتوى جنسي', harassment: 'تحرّش', underage: 'قد يكون قاصراً', fake: 'حساب مزيّف', other: 'أخرى' };
-const ACTION_AR = { warn: 'تحذير', restrict: 'تقييد', unrestrict: 'رفع التقييد', suspend: 'إيقاف', unsuspend: 'إعادة تفعيل', dismiss: 'رفض البلاغ', clear_review: 'إزالة علامة المراجعة', view_chat: 'فتح محادثة', set_role: 'تغيير صلاحية', announce: 'إعلان' };
+const ACTION_AR = { warn: 'تحذير', restrict: 'تقييد', unrestrict: 'رفع التقييد', suspend: 'إيقاف', unsuspend: 'إعادة تفعيل', dismiss: 'رفض البلاغ', clear_review: 'إزالة علامة المراجعة', view_chat: 'فتح محادثة', set_role: 'تغيير صلاحية', announce: 'إعلان', grant: 'منح', support_reply: 'رد على مستخدم' };
 const RANK = { reviewer: 1, mod: 2, admin: 3 };
 let role = null;
 
@@ -118,8 +118,8 @@ onAuthStateChanged(auth, async u => {
 const loginCard = $('#login');
 
 const PAGES = [
-  ['stats', 'الإحصاءات', 'reviewer'], ['reports', 'البلاغات', 'reviewer'], ['user', 'بحث عن حساب', 'reviewer'],
-  ['log', 'سجل الإجراءات', 'mod'], ['announce', 'إعلان', 'admin'], ['errors', 'الأخطاء والنسخ', 'admin'], ['roles', 'الصلاحيات', 'admin'],
+  ['stats', 'الإحصاءات', 'reviewer'], ['reports', 'البلاغات', 'reviewer'], ['user', 'الحسابات والمنح', 'reviewer'],
+  ['support', 'رسائل المستخدمين', 'mod'], ['log', 'سجل الإجراءات', 'mod'], ['announce', 'إعلان', 'admin'], ['errors', 'الأخطاء والنسخ', 'admin'], ['roles', 'الصلاحيات', 'admin'],
 ];
 function buildNav() {
   const n = $('#nav'); n.innerHTML = ''; n.hidden = false;
@@ -135,6 +135,13 @@ async function show(p) {
 }
 
 const VIEWS = {
+  async support() {
+    const r = await call('adminSupportList');
+    return `<div class="card"><h3 style="margin-top:0">رسائل المستخدمين إلى فريق زاجل</h3>
+      <table><tr><th>المستخدم</th><th>آخر رسالة</th><th>الوقت</th><th></th></tr>
+      ${r.rows.map(x => `<tr><td>${esc(x.name)} <span class="muted">${esc(x.country)}</span>${x.unread ? ` <span class="tag red">${x.unread} جديدة</span>` : ''}</td>
+        <td class="muted">${x.lastFrom === 'team' ? 'الفريق: ' : ''}${esc(x.last)}</td><td>${when(x.at)}</td><td><button class="b gold" data-sup="${x.uid}">فتح</button></td></tr>`).join('') || '<tr><td colspan="4" class="muted">لا رسائل بعد.</td></tr>'}</table></div>`;
+  },
   async stats() {
     const s = await call('adminStats');
     const k = (v, l) => `<div class="kpi"><b>${v}</b><span>${l}</span></div>`;
@@ -160,12 +167,12 @@ const VIEWS = {
       </tr>`).join('') || '<tr><td colspan="6" class="muted">لا توجد بلاغات.</td></tr>'}</table></div>`;
   },
   async user() {
-    return `<div class="card"><div class="row"><input id="uid" placeholder="معرّف الحساب (uid)" style="flex:1"><button class="b gold" id="find">بحث</button></div><div id="uout"></div></div>`;
+    return `<div class="card"><div class="row"><input id="uid" placeholder="الاسم، أو البريد الإلكتروني، أو معرّف الحساب" style="flex:1"><button class="b gold" id="find">بحث</button></div><div id="ulist"></div><div id="uout"></div></div>`;
   },
   async log() {
     const r = await call('adminLog');
     return `<div class="card"><h3 style="margin-top:0">سجل الإجراءات</h3><table><tr><th>الوقت</th><th>المشرف</th><th>الإجراء</th><th>تفاصيل</th></tr>
-      ${r.rows.map(x => `<tr><td>${when(x.at)}</td><td>${esc(x.email)}</td><td><span class="tag gold">${esc(ACTION_AR[x.action] || x.action)}</span></td><td class="muted">${esc([x.target, x.reportId, x.note, x.days && x.days + ' يوم', x.role, x.text].filter(Boolean).join(' · '))}</td></tr>`).join('')}</table></div>`;
+      ${r.rows.map(x => `<tr><td>${when(x.at)}</td><td>${esc(x.email)}</td><td><span class="tag gold">${esc(ACTION_AR[x.action] || x.action)}</span></td><td class="muted">${esc([x.target, x.reportId, x.note, x.days && x.days + ' يوم', x.pigeons && x.pigeons + ' زاجل', x.points && x.points + ' نقطة', x.vipDays && x.vipDays + ' يوم VIP', x.revokeVip && 'إلغاء VIP', x.role, x.text].filter(Boolean).join(' · '))}</td></tr>`).join('')}</table></div>`;
   },
   async announce() {
     return `<div class="card"><h3 style="margin-top:0">إعلان داخل التطبيق</h3><p class="muted">يظهر شريطاً أعلى التطبيق ويُترجم تلقائياً لكل اللغات. اتركه فارغاً لإخفاء الإعلان الحالي.</p>
@@ -195,9 +202,36 @@ async function userCard(uid) {
   const st = u.banned ? '<span class="tag red">موقوف</span>' : u.restrictedUntil && u.restrictedUntil > Date.now() ? `<span class="tag gold">مقيّد حتى ${when(u.restrictedUntil)}</span>` : '<span class="tag ok">نشط</span>';
   return `<h3 style="margin-top:0">${esc(u.name)} <span class="muted">${esc(u.country)}</span> ${st}${u.review ? ' <span class="tag red">بانتظار مراجعة</span>' : ''}</h3>
     <p class="muted">انضم ${when(u.createdAt)} · آخر نشاط ${when(u.lastActive)} · تحذيرات: ${u.warnings} · اللغة: ${esc(u.lang)}</p>
+    <p class="muted">🕊️ زواجل هدية: ${u.giftPigeons} · نقاط: ${u.points} · VIP: ${u.vipUntil ? 'حتى ' + when(u.vipUntil) : 'لا'}</p>
     <p class="muted" style="font-size:12px">${esc(uid)}</p>
     <table>${u.reports.map(r => `<tr><td>${esc(REASONS[r.reason] || r.reason)}</td><td>${when(r.at)}</td><td><span class="tag">${esc(r.status)}</span></td></tr>`).join('')}</table>
-    ${RANK[role] >= 2 ? actionForm(uid, '') : ''}`;
+    ${RANK[role] >= 2 ? grantForm(uid, !!u.vipUntil) + actionForm(uid, '') : ''}`;
+}
+function grantForm(uid, vip) {
+  return `<div class="card" style="margin-top:12px"><h4 style="margin:0 0 8px;color:var(--gold)">🎁 منح</h4><div class="row">
+    <label>زواجل <input id="gp" type="number" min="0" max="500" value="0" style="width:80px"></label>
+    <label>نقاط <input id="gpt" type="number" min="0" max="100000" value="0" style="width:90px"></label>
+    <label>أيام VIP <select id="gv">${[0, 1, 3, 7, 30, 90, 365].map(d => `<option value="${d}">${d}</option>`).join('')}</select></label>
+    <input id="gn" placeholder="رسالة للمستخدم (اختياري)" style="flex:1" maxlength="200">
+    <button class="b gold" id="gdo" data-uid="${uid}">منح</button>
+    ${vip ? `<button class="b red" id="grv" data-uid="${uid}">إلغاء VIP</button>` : ''}</div></div>`;
+}
+function wireGrant() {
+  const b = $('#gdo'); if (!b) return;
+  b.onclick = async () => {
+    const data = { uid: b.dataset.uid, pigeons: +$('#gp').value, points: +$('#gpt').value, vipDays: +$('#gv').value, note: $('#gn').value };
+    if (!data.pigeons && !data.points && !data.vipDays) return toast('اختر ما تريد منحه');
+    b.disabled = true;
+    try { await call('adminGrant', data); toast('تمّ المنح'); refreshUser(b.dataset.uid); } catch (e) { toast('خطأ: ' + e.message); b.disabled = false; }
+  };
+  const r = $('#grv'); if (r) r.onclick = async () => {
+    if (!confirm('إلغاء اشتراك VIP لهذا الحساب الآن؟')) return;
+    try { await call('adminGrant', { uid: r.dataset.uid, revokeVip: true }); toast('تمّ'); refreshUser(r.dataset.uid); } catch (e) { toast('خطأ: ' + e.message); }
+  };
+}
+async function refreshUser(uid) {
+  const box = dlg.open ? $('#dlgBody') : $('#uout');
+  box.innerHTML = await userCard(uid); wireAction(); wireGrant();
 }
 function actionForm(uid, reportId) {
   return `<div class="card" style="margin-top:12px"><div class="row">
@@ -217,10 +251,31 @@ function wireAction() {
   };
 }
 
+async function openSupport(uid) {
+  openDlg('…');
+  try {
+    const t = await call('adminSupportThread', { uid });
+    $('#dlgBody').innerHTML = `<h3 style="margin-top:0">${esc(t.who.name)} <span class="muted">${esc(t.who.country)} · ${esc(t.lang)}</span></h3>
+      <div class="msgs" id="smsgs">${t.messages.map(m => `<div class="msg ${m.from === 'user' ? 'a' : ''}"><small>${m.from === 'user' ? esc(t.who.name) : 'الفريق' + (m.byEmail ? ' · ' + esc(m.byEmail) : '')} · ${when(m.at)}</small>${esc(m.text)}${m.from === 'user' && m.ar && m.ar !== m.text ? `<pre>${esc(m.ar)}</pre>` : ''}</div>`).join('') || '<p class="muted">لا رسائل.</p>'}</div>
+      <p class="muted" style="font-size:12px">اكتب بأي لغة؛ يصل الرد إلى المستخدم مترجماً إلى لغته.</p>
+      <div class="row"><textarea id="srep" rows="2" style="flex:1" maxlength="2000" placeholder="ردّ الفريق"></textarea><button class="b gold" id="ssend">إرسال</button></div>`;
+    const box = $('#smsgs'); box.scrollTop = box.scrollHeight;
+    $('#ssend').onclick = async () => {
+      const text = $('#srep').value.trim(); if (!text) return;
+      $('#ssend').disabled = true;
+      try { await call('adminSupportReply', { uid, text }); openSupport(uid); } catch (e) { toast('خطأ: ' + e.message); $('#ssend').disabled = false; }
+    };
+  } catch (e) { $('#dlgBody').textContent = 'خطأ: ' + e.message; }
+}
+
 const WIRE = {
+  support() {
+    document.querySelectorAll('[data-sup]').forEach(b => b.onclick = () => openSupport(b.dataset.sup));
+    dlg.onclose = () => { if (document.querySelector('#nav .on')?.dataset.p === 'support') show('support'); };
+  },
   reports() {
     $('#rs').onchange = e => { window._rs = e.target.value; show('reports'); };
-    document.querySelectorAll('[data-user]').forEach(a => a.onclick = async e => { e.preventDefault(); openDlg('…'); $('#dlgBody').innerHTML = await userCard(a.dataset.user); wireAction(); });
+    document.querySelectorAll('[data-user]').forEach(a => a.onclick = async e => { e.preventDefault(); openDlg('…'); $('#dlgBody').innerHTML = await userCard(a.dataset.user); wireAction(); wireGrant(); });
     document.querySelectorAll('[data-act]').forEach(a => a.onclick = () => { openDlg('<h3 style="margin-top:0">إجراء على البلاغ</h3>' + actionForm(a.dataset.uid, a.dataset.act)); wireAction(); });
     document.querySelectorAll('[data-chat]').forEach(a => a.onclick = async () => {
       openDlg('…');
@@ -233,7 +288,17 @@ const WIRE = {
     });
   },
   user() {
-    $('#find').onclick = async () => { $('#uout').innerHTML = '…'; try { $('#uout').innerHTML = await userCard($('#uid').value.trim()); wireAction(); } catch (e) { $('#uout').textContent = 'خطأ: ' + e.message; } };
+    const go = async () => {
+      $('#uout').innerHTML = ''; $('#ulist').innerHTML = '…';
+      try {
+        const r = await call('adminFind', { q: $('#uid').value.trim() });
+        if (!r.rows.length) { $('#ulist').innerHTML = '<p class="muted">لا نتائج.</p>'; return; }
+        $('#ulist').innerHTML = `<table>${r.rows.map(x => `<tr><td>${esc(x.name)} <span class="muted">${esc(x.country)}</span></td><td><button class="b" data-open="${x.uid}">فتح</button></td></tr>`).join('')}</table>`;
+        document.querySelectorAll('[data-open]').forEach(b => b.onclick = async () => { $('#uout').innerHTML = '…'; try { $('#uout').innerHTML = await userCard(b.dataset.open); wireAction(); wireGrant(); } catch (e) { $('#uout').textContent = 'خطأ: ' + e.message; } });
+        if (r.rows.length === 1) document.querySelector('[data-open]').click();
+      } catch (e) { $('#ulist').textContent = 'خطأ: ' + e.message; }
+    };
+    $('#find').onclick = go; $('#uid').onkeydown = e => { if (e.key === 'Enter') go(); };
   },
   announce() {
     $('#asend').onclick = async () => { try { await call('adminAnnounce', { text: $('#atext').value, days: +$('#adays').value }); toast('تمّ النشر'); } catch (e) { toast('خطأ: ' + e.message); } };

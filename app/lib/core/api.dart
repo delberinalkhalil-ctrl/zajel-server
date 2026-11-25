@@ -104,7 +104,17 @@ class Api {
       .orderBy('updatedAt', descending: true)
       .limit(60)
       .snapshots()
-      .map((q) => q.docs.map((d) => ChatInfo(d.id, d.data())).toList());
+      .map((q) => q.docs.map((d) => ChatInfo(d.id, d.data())).where((c) => !c.hiddenFor(uid)).toList());
+
+  /// My conversation with the Zajel team: unread replies count, and the messages.
+  static Stream<int> supportUnread() =>
+      fs.doc('support/$uid').snapshots().map((s) => (s.data()?['unreadUser'] as num?)?.toInt() ?? 0);
+  static Stream<List<SupportMsg>> supportMessages() => fs
+      .collection('support/$uid/messages')
+      .orderBy('at', descending: true)
+      .limit(150)
+      .snapshots()
+      .map((q) => q.docs.map((d) => SupportMsg(d.id, d.data())).toList());
 
   static Stream<ChatInfo?> chat(String id) =>
       fs.doc('chats/$id').snapshots().map((s) => s.exists ? ChatInfo(s.id, s.data()!) : null);

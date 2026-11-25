@@ -110,7 +110,7 @@ export const updateProfile = onCall(async req => {
 export const ackNotice = onCall(async req => {
   const uid = requireUid(req);
   const u = await getUser(uid);
-  if (u.notice?.kind === 'warn') await db().doc(`users/${uid}`).update({ notice: FieldValue.delete() });
+  if (u.notice?.kind === 'warn' || u.notice?.kind === 'gift') await db().doc(`users/${uid}`).update({ notice: FieldValue.delete() });
   else if (u.notice) await db().doc(`users/${uid}`).update({ 'notice.seen': true });
   return { ok: true };
 });

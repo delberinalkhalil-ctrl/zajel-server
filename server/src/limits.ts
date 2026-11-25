@@ -17,6 +17,8 @@ export const CALL_LIMITS: Record<string, [number, number]> = {
   avatar: [10, 3600],
   logError: [30, 3600],
   deleteMessage: [60, 600],
+  deleteChat: [30, 600],
+  supportSend: [20, 3600],
   setChatTtl: [20, 3600],
   countryFact: [60, 3600],
   adminChat: [60, 3600],

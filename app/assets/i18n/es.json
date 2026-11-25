@@ -433,5 +433,20 @@
  "onb_skip": "Omitir",
  "sent_anim": "¡Tu carta va en camino!",
  "time_left": "Quedan {h} h antes de que vuele a otra persona",
- "landed_toast": "Una nueva paloma ha aterrizado contigo"
+ "landed_toast": "Una nueva paloma ha aterrizado contigo",
+ "delete": "Eliminar",
+ "delete_chat": "Eliminar conversación",
+ "delete_chat_q": "¿Eliminar la conversación con {name}?",
+ "delete_chat_body": "La conversación y sus mensajes desaparecerán para ti. Si te vuelve a escribir, volverá solo con los mensajes nuevos.",
+ "chat_deleted": "Conversación eliminada",
+ "team_chat": "Equipo de Zajel",
+ "team_chat_sub": "Preguntas, problemas e ideas",
+ "team_chat_hint": "Respondemos en tu idioma",
+ "team_chat_empty": "Escríbenos cualquier pregunta, problema o idea y el equipo de Zajel te responderá aquí en tu idioma.",
+ "team_chat_write": "Escribe al equipo de Zajel",
+ "gift_left": "+{n} de regalo",
+ "gift_title": "Un regalo del equipo de Zajel 🎁",
+ "gift_pigeons": "{n} palomas extra, que se usan después de las gratuitas del día",
+ "gift_vip": "VIP durante {n} días",
+ "gift_points": "{n} puntos"
 }

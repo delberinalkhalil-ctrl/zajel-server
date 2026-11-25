@@ -448,3 +448,22 @@ T.update({
 "time_left": "Başkasına uçmadan önce {h} saat kaldı",
 "landed_toast": "Yanına yeni bir güvercin kondu",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "Sil",
+"delete_chat": "Sohbeti sil",
+"delete_chat_q": "{name} ile sohbet silinsin mi?",
+"delete_chat_body": "Sohbet ve mesajları senden kaybolur. Karşı taraf tekrar yazarsa, sohbet yalnızca yeni mesajlarla geri gelir.",
+"chat_deleted": "Sohbet silindi",
+"team_chat": "Zajel ekibi",
+"team_chat_sub": "Sorular, sorunlar ve öneriler",
+"team_chat_hint": "Senin dilinde yanıt veririz",
+"team_chat_empty": "Bize her türlü soru, sorun veya öneriyi yaz; Zajel ekibi burada senin dilinde yanıt verir.",
+"team_chat_write": "Zajel ekibine yaz",
+"gift_left": "+{n} hediye",
+"gift_title": "Zajel ekibinden bir hediye 🎁",
+"gift_pigeons": "Günün ücretsizlerinden sonra kullanılan {n} ek güvercin",
+"gift_vip": "{n} gün VIP",
+"gift_points": "{n} puan",
+})

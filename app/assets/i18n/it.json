@@ -433,5 +433,20 @@
  "onb_skip": "Salta",
  "sent_anim": "La tua lettera è partita!",
  "time_left": "Mancano {h} h prima che voli da un altro",
- "landed_toast": "Un nuovo piccione è atterrato da te"
+ "landed_toast": "Un nuovo piccione è atterrato da te",
+ "delete": "Elimina",
+ "delete_chat": "Elimina conversazione",
+ "delete_chat_q": "Eliminare la conversazione con {name}?",
+ "delete_chat_body": "La conversazione e i messaggi spariranno per te. Se l’altra persona ti riscrive, tornerà solo con i nuovi messaggi.",
+ "chat_deleted": "Conversazione eliminata",
+ "team_chat": "Team di Zajel",
+ "team_chat_sub": "Domande, problemi e idee",
+ "team_chat_hint": "Rispondiamo nella tua lingua",
+ "team_chat_empty": "Scrivici qualsiasi domanda, problema o idea: il team di Zajel ti risponderà qui nella tua lingua.",
+ "team_chat_write": "Scrivi al team di Zajel",
+ "gift_left": "+{n} in regalo",
+ "gift_title": "Un regalo dal team di Zajel 🎁",
+ "gift_pigeons": "{n} piccioni extra, usati dopo quelli gratuiti del giorno",
+ "gift_vip": "VIP per {n} giorni",
+ "gift_points": "{n} punti"
 }

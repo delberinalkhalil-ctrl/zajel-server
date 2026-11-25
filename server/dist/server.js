@@ -420,7 +420,7 @@ var updateProfile = onCall(async (req) => {
 var ackNotice = onCall(async (req) => {
   const uid = requireUid(req);
   const u = await getUser(uid);
-  if (u.notice?.kind === "warn") await db().doc(`users/${uid}`).update({ notice: import_firestore.FieldValue.delete() });
+  if (u.notice?.kind === "warn" || u.notice?.kind === "gift") await db().doc(`users/${uid}`).update({ notice: import_firestore.FieldValue.delete() });
   else if (u.notice) await db().doc(`users/${uid}`).update({ "notice.seen": true });
   return { ok: true };
 });
@@ -462,21 +462,21 @@ var deleteAccount = onCall(async (req) => {
 var import_messaging = require("firebase-admin/messaging");
 var import_firestore2 = require("firebase-admin/firestore");
 var T = {
-  ar: { landed_t: "\u062D\u0637\u0651 \u0639\u0646\u062F\u0643 \u0632\u0627\u062C\u0644!", landed_b: "\u0631\u0633\u0627\u0644\u0629 \u0645\u0646 {city}\u060C {country}", caught_t: "{name} \u0627\u0644\u062A\u0642\u0637 \u0632\u0627\u062C\u0644\u0643", caught_b: "\u0641\u064A {city}. \u0642\u0644 \u0645\u0631\u062D\u0628\u0627\u064B!", call_t: "{name} \u064A\u062A\u0635\u0644 \u0628\u0643", voice: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u0645\u062A\u0631\u062C\u0645\u0629", video: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u0645\u062A\u0631\u062C\u0645\u0629", expired_t: "\u0639\u0627\u062F \u0632\u0627\u062C\u0644\u0643", expired_b: "\u0644\u0645 \u064A\u0644\u062A\u0642\u0637\u0647 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0629. \u062C\u0631\u0651\u0628 \u0625\u0637\u0644\u0627\u0642 \u0632\u0627\u062C\u0644 \u0622\u062E\u0631.", app: "\u0632\u0627\u062C\u0644", hidden: "\u0644\u062F\u064A\u0643 \u0625\u0634\u0639\u0627\u0631 \u062C\u062F\u064A\u062F" },
-  en: { landed_t: "A pigeon landed with you!", landed_b: "A letter from {city}, {country}", caught_t: "{name} caught your pigeon", caught_b: "In {city}. Say hello!", call_t: "{name} is calling", voice: "Translated voice call", video: "Translated video call", expired_t: "Your pigeon came back", expired_b: "Nobody caught it this time. Try sending another.", app: "Zajel", hidden: "You have a new notification" },
-  fr: { landed_t: "Un pigeon s\u2019est pos\xE9 chez vous !", landed_b: "Une lettre de {city}, {country}", caught_t: "{name} a attrap\xE9 votre pigeon", caught_b: "\xC0 {city}. Dites bonjour !", call_t: "{name} vous appelle", voice: "Appel vocal traduit", video: "Appel vid\xE9o traduit", expired_t: "Votre pigeon est revenu", expired_b: "Personne ne l\u2019a attrap\xE9 cette fois. Envoyez-en un autre.", app: "Zajel", hidden: "Vous avez une nouvelle notification" },
-  tr: { landed_t: "Sana bir g\xFCvercin kondu!", landed_b: "{city}, {country} \u015Fehrinden bir mektup", caught_t: "{name} g\xFCvercinini yakalad\u0131", caught_b: "{city} \u015Fehrinde. Merhaba de!", call_t: "{name} seni ar\u0131yor", voice: "\xC7evirili sesli arama", video: "\xC7evirili g\xF6r\xFCnt\xFCl\xFC arama", expired_t: "G\xFCvercinin geri d\xF6nd\xFC", expired_b: "Bu sefer kimse yakalamad\u0131. Bir tane daha g\xF6nder.", app: "Zajel", hidden: "Yeni bir bildirimin var" },
-  he: { landed_t: "\u05D9\u05D5\u05E0\u05D4 \u05E0\u05D7\u05EA\u05D4 \u05D0\u05E6\u05DC\u05DA!", landed_b: "\u05DE\u05DB\u05EA\u05D1 \u05DE{city}, {country}", caught_t: "{name} \u05EA\u05E4\u05E1/\u05D4 \u05D0\u05EA \u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA", caught_b: "\u05D1{city}. \u05EA\u05D2\u05D9\u05D3/\u05D9 \u05E9\u05DC\u05D5\u05DD!", call_t: "{name} \u05DE\u05EA\u05E7\u05E9\u05E8/\u05EA", voice: "\u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", video: "\u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", expired_t: "\u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA \u05D7\u05D6\u05E8\u05D4", expired_b: "\u05D0\u05E3 \u05D0\u05D7\u05D3 \u05DC\u05D0 \u05EA\u05E4\u05E1 \u05D0\u05D5\u05EA\u05D4 \u05D4\u05E4\u05E2\u05DD. \u05E0\u05E1\u05D4/\u05D9 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E2\u05D5\u05D3 \u05D0\u05D7\u05EA.", app: "Zajel", hidden: "\u05D9\u05E9 \u05DC\u05DA \u05D4\u05EA\u05E8\u05D0\u05D4 \u05D7\u05D3\u05E9\u05D4" },
-  es: { landed_t: "\xA1Una paloma aterriz\xF3 contigo!", landed_b: "Una carta desde {city}, {country}", caught_t: "{name} atrap\xF3 tu paloma", caught_b: "En {city}. \xA1Saluda!", call_t: "{name} te est\xE1 llamando", voice: "Llamada de voz traducida", video: "Videollamada traducida", expired_t: "Tu paloma volvi\xF3", expired_b: "Nadie la atrap\xF3 esta vez. Prueba a enviar otra.", app: "Zajel", hidden: "Tienes una notificaci\xF3n nueva" },
-  pt: { landed_t: "Um pombo pousou com voc\xEA!", landed_b: "Uma carta de {city}, {country}", caught_t: "{name} pegou o seu pombo", caught_b: "Em {city}. Diga ol\xE1!", call_t: "{name} est\xE1 ligando", voice: "Chamada de voz traduzida", video: "Videochamada traduzida", expired_t: "Seu pombo voltou", expired_b: "Ningu\xE9m o pegou desta vez. Tente enviar outro.", app: "Zajel", hidden: "Voc\xEA tem uma nova notifica\xE7\xE3o" },
-  fa: { landed_t: "\u06CC\u06A9 \u06A9\u0628\u0648\u062A\u0631 \u067E\u06CC\u0634 \u062A\u0648 \u0646\u0634\u0633\u062A!", landed_b: "\u0646\u0627\u0645\u0647\u200C\u0627\u06CC \u0627\u0632 {city}\u060C {country}", caught_t: "{name} \u06A9\u0628\u0648\u062A\u0631\u062A \u0631\u0627 \u06AF\u0631\u0641\u062A", caught_b: "\u062F\u0631 {city}. \u0633\u0644\u0627\u0645 \u06A9\u0646!", call_t: "{name} \u062F\u0631 \u062D\u0627\u0644 \u062A\u0645\u0627\u0633 \u0627\u0633\u062A", voice: "\u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", video: "\u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", expired_t: "\u06A9\u0628\u0648\u062A\u0631\u062A \u0628\u0631\u06AF\u0634\u062A", expired_b: "\u0627\u06CC\u0646 \u0628\u0627\u0631 \u06A9\u0633\u06CC \u0622\u0646 \u0631\u0627 \u0646\u06AF\u0631\u0641\u062A. \u06CC\u06A9\u06CC \u062F\u06CC\u06AF\u0631 \u0628\u0641\u0631\u0633\u062A.", app: "\u0632\u0627\u062C\u0644", hidden: "\u06CC\u06A9 \u0627\u0639\u0644\u0627\u0646 \u062C\u062F\u06CC\u062F \u062F\u0627\u0631\u06CC" },
-  ru: { landed_t: "\u041A \u0432\u0430\u043C \u043F\u0440\u0438\u043B\u0435\u0442\u0435\u043B \u0433\u043E\u043B\u0443\u0431\u044C!", landed_b: "\u041F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 {city}, {country}", caught_t: "{name} \u043F\u043E\u0439\u043C\u0430\u043B(\u0430) \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u044F", caught_b: "\u0412 {city}. \u041F\u043E\u0437\u0434\u043E\u0440\u043E\u0432\u0430\u0439\u0442\u0435\u0441\u044C!", call_t: "{name} \u0437\u0432\u043E\u043D\u0438\u0442 \u0432\u0430\u043C", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", video: "\u0412\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", expired_t: "\u0412\u0430\u0448 \u0433\u043E\u043B\u0443\u0431\u044C \u0432\u0435\u0440\u043D\u0443\u043B\u0441\u044F", expired_b: "\u0412 \u044D\u0442\u043E\u0442 \u0440\u0430\u0437 \u0435\u0433\u043E \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u043F\u043E\u0439\u043C\u0430\u043B. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0449\u0451 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0432\u0430\u0441 \u043D\u043E\u0432\u043E\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435" },
-  de: { landed_t: "Eine Taube ist bei dir gelandet!", landed_b: "Ein Brief aus {city}, {country}", caught_t: "{name} hat deine Taube gefangen", caught_b: "In {city}. Sag hallo!", call_t: "{name} ruft dich an", voice: "\xDCbersetzter Sprachanruf", video: "\xDCbersetzter Videoanruf", expired_t: "Deine Taube ist zur\xFCck", expired_b: "Diesmal hat sie niemand gefangen. Schick eine neue.", app: "Zajel", hidden: "Du hast eine neue Benachrichtigung" },
-  it: { landed_t: "Un piccione \xE8 atterrato da te!", landed_b: "Una lettera da {city}, {country}", caught_t: "{name} ha preso il tuo piccione", caught_b: "A {city}. Saluta!", call_t: "{name} ti sta chiamando", voice: "Chiamata vocale tradotta", video: "Videochiamata tradotta", expired_t: "Il tuo piccione \xE8 tornato", expired_b: "Questa volta nessuno l'ha preso. Prova a mandarne un altro.", app: "Zajel", hidden: "Hai una nuova notifica" },
-  uk: { landed_t: "\u0414\u043E \u0442\u0435\u0431\u0435 \u043F\u0440\u0438\u043B\u0435\u0442\u0456\u0432 \u0433\u043E\u043B\u0443\u0431!", landed_b: "\u041B\u0438\u0441\u0442 \u0456\u0437 {city}, {country}", caught_t: "{name} \u0441\u043F\u0456\u0439\u043C\u0430\u0432(\u043B\u0430) \u0442\u0432\u043E\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u0430", caught_b: "\u0423 {city}. \u041F\u0440\u0438\u0432\u0456\u0442\u0430\u0439\u0441\u044F!", call_t: "{name} \u0434\u0437\u0432\u043E\u043D\u0438\u0442\u044C \u0442\u043E\u0431\u0456", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", video: "\u0412\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", expired_t: "\u0422\u0432\u0456\u0439 \u0433\u043E\u043B\u0443\u0431 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0432\u0441\u044F", expired_b: "\u0426\u044C\u043E\u0433\u043E \u0440\u0430\u0437\u0443 \u0439\u043E\u0433\u043E \u043D\u0456\u0445\u0442\u043E \u043D\u0435 \u0441\u043F\u0456\u0439\u043C\u0430\u0432. \u041D\u0430\u0434\u0456\u0448\u043B\u0438 \u0449\u0435 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0442\u0435\u0431\u0435 \u043D\u043E\u0432\u0435 \u0441\u043F\u043E\u0432\u0456\u0449\u0435\u043D\u043D\u044F" },
-  zh: { landed_t: "\u4E00\u53EA\u4FE1\u9E3D\u843D\u5728\u4F60\u8FD9\u91CC\uFF01", landed_b: "\u6765\u81EA{country}{city}\u7684\u4FE1", caught_t: "{name} \u63A5\u4F4F\u4E86\u4F60\u7684\u4FE1\u9E3D", caught_b: "\u5728{city}\u3002\u6253\u4E2A\u62DB\u547C\u5427\uFF01", call_t: "{name} \u6B63\u5728\u547C\u53EB\u4F60", voice: "\u7FFB\u8BD1\u8BED\u97F3\u901A\u8BDD", video: "\u7FFB\u8BD1\u89C6\u9891\u901A\u8BDD", expired_t: "\u4F60\u7684\u4FE1\u9E3D\u98DE\u56DE\u6765\u4E86", expired_b: "\u8FD9\u6B21\u6CA1\u6709\u4EBA\u63A5\u4F4F\u5B83\u3002\u518D\u653E\u98DE\u4E00\u53EA\u5427\u3002", app: "Zajel", hidden: "\u4F60\u6709\u4E00\u6761\u65B0\u901A\u77E5" },
-  hi: { landed_t: "\u0906\u092A\u0915\u0947 \u092A\u093E\u0938 \u090F\u0915 \u0915\u092C\u0942\u0924\u0930 \u0909\u0924\u0930\u093E!", landed_b: "{city}, {country} \u0938\u0947 \u090F\u0915 \u091A\u093F\u091F\u094D\u0920\u0940", caught_t: "{name} \u0928\u0947 \u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u092A\u0915\u0921\u093C\u093E", caught_b: "{city} \u092E\u0947\u0902\u0964 \u0928\u092E\u0938\u094D\u0924\u0947 \u0915\u0939\u093F\u090F!", call_t: "{name} \u0915\u0949\u0932 \u0915\u0930 \u0930\u0939\u0947 \u0939\u0948\u0902", voice: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932", video: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932", expired_t: "\u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u0932\u094C\u091F \u0906\u092F\u093E", expired_b: "\u0907\u0938 \u092C\u093E\u0930 \u0915\u093F\u0938\u0940 \u0928\u0947 \u0928\u0939\u0940\u0902 \u092A\u0915\u0921\u093C\u093E\u0964 \u090F\u0915 \u0914\u0930 \u092D\u0947\u091C\u093F\u090F\u0964", app: "Zajel", hidden: "\u0906\u092A\u0915\u0947 \u0932\u093F\u090F \u090F\u0915 \u0928\u0908 \u0938\u0942\u091A\u0928\u093E \u0939\u0948" },
-  ku: { landed_t: "Kevokek li cem te daket!", landed_b: "Nameyek ji {city}, {country}", caught_t: "{name} kevoka te girt", caught_b: "Li {city}. Silav bike!", call_t: "{name} li te digere", voice: "Banga deng\xEE ya wergerand\xEE", video: "Banga v\xEEdyoy\xEE ya wergerand\xEE", expired_t: "Kevoka te vegeriya", expired_b: "V\xEA car\xEA kes\xEE ew negirt. Yeke din bi\u015F\xEEne.", app: "Zajel", hidden: "Agahdariyek n\xFB ji te re heye" }
+  ar: { landed_t: "\u062D\u0637\u0651 \u0639\u0646\u062F\u0643 \u0632\u0627\u062C\u0644!", landed_b: "\u0631\u0633\u0627\u0644\u0629 \u0645\u0646 {city}\u060C {country}", caught_t: "{name} \u0627\u0644\u062A\u0642\u0637 \u0632\u0627\u062C\u0644\u0643", caught_b: "\u0641\u064A {city}. \u0642\u0644 \u0645\u0631\u062D\u0628\u0627\u064B!", call_t: "{name} \u064A\u062A\u0635\u0644 \u0628\u0643", voice: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0635\u0648\u062A\u064A\u0629 \u0645\u062A\u0631\u062C\u0645\u0629", video: "\u0645\u0643\u0627\u0644\u0645\u0629 \u0641\u064A\u062F\u064A\u0648 \u0645\u062A\u0631\u062C\u0645\u0629", expired_t: "\u0639\u0627\u062F \u0632\u0627\u062C\u0644\u0643", expired_b: "\u0644\u0645 \u064A\u0644\u062A\u0642\u0637\u0647 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u0645\u0631\u0629. \u062C\u0631\u0651\u0628 \u0625\u0637\u0644\u0627\u0642 \u0632\u0627\u062C\u0644 \u0622\u062E\u0631.", app: "\u0632\u0627\u062C\u0644", hidden: "\u0644\u062F\u064A\u0643 \u0625\u0634\u0639\u0627\u0631 \u062C\u062F\u064A\u062F", gift_t: "\u0647\u062F\u064A\u0629 \u0645\u0646 \u0641\u0631\u064A\u0642 \u0632\u0627\u062C\u0644 \u{1F381}", gift_b: "\u0627\u0641\u062A\u062D \u0627\u0644\u062A\u0637\u0628\u064A\u0642 \u0644\u062A\u0631\u0649 \u0645\u0627 \u0648\u0635\u0644\u0643", support_t: "\u0641\u0631\u064A\u0642 \u0632\u0627\u062C\u0644" },
+  en: { landed_t: "A pigeon landed with you!", landed_b: "A letter from {city}, {country}", caught_t: "{name} caught your pigeon", caught_b: "In {city}. Say hello!", call_t: "{name} is calling", voice: "Translated voice call", video: "Translated video call", expired_t: "Your pigeon came back", expired_b: "Nobody caught it this time. Try sending another.", app: "Zajel", hidden: "You have a new notification", gift_t: "A gift from the Zajel team \u{1F381}", gift_b: "Open the app to see what you got", support_t: "Zajel team" },
+  fr: { landed_t: "Un pigeon s\u2019est pos\xE9 chez vous !", landed_b: "Une lettre de {city}, {country}", caught_t: "{name} a attrap\xE9 votre pigeon", caught_b: "\xC0 {city}. Dites bonjour !", call_t: "{name} vous appelle", voice: "Appel vocal traduit", video: "Appel vid\xE9o traduit", expired_t: "Votre pigeon est revenu", expired_b: "Personne ne l\u2019a attrap\xE9 cette fois. Envoyez-en un autre.", app: "Zajel", hidden: "Vous avez une nouvelle notification", gift_t: "Un cadeau de l\u2019\xE9quipe Zajel \u{1F381}", gift_b: "Ouvrez l\u2019app pour le d\xE9couvrir", support_t: "\xC9quipe Zajel" },
+  tr: { landed_t: "Sana bir g\xFCvercin kondu!", landed_b: "{city}, {country} \u015Fehrinden bir mektup", caught_t: "{name} g\xFCvercinini yakalad\u0131", caught_b: "{city} \u015Fehrinde. Merhaba de!", call_t: "{name} seni ar\u0131yor", voice: "\xC7evirili sesli arama", video: "\xC7evirili g\xF6r\xFCnt\xFCl\xFC arama", expired_t: "G\xFCvercinin geri d\xF6nd\xFC", expired_b: "Bu sefer kimse yakalamad\u0131. Bir tane daha g\xF6nder.", app: "Zajel", hidden: "Yeni bir bildirimin var", gift_t: "Zajel ekibinden bir hediye \u{1F381}", gift_b: "Ne geldi\u011Fini g\xF6rmek i\xE7in uygulamay\u0131 a\xE7", support_t: "Zajel ekibi" },
+  he: { landed_t: "\u05D9\u05D5\u05E0\u05D4 \u05E0\u05D7\u05EA\u05D4 \u05D0\u05E6\u05DC\u05DA!", landed_b: "\u05DE\u05DB\u05EA\u05D1 \u05DE{city}, {country}", caught_t: "{name} \u05EA\u05E4\u05E1/\u05D4 \u05D0\u05EA \u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA", caught_b: "\u05D1{city}. \u05EA\u05D2\u05D9\u05D3/\u05D9 \u05E9\u05DC\u05D5\u05DD!", call_t: "{name} \u05DE\u05EA\u05E7\u05E9\u05E8/\u05EA", voice: "\u05E9\u05D9\u05D7\u05D4 \u05E7\u05D5\u05DC\u05D9\u05EA \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", video: "\u05E9\u05D9\u05D7\u05EA \u05D5\u05D9\u05D3\u05D0\u05D5 \u05DE\u05EA\u05D5\u05E8\u05D2\u05DE\u05EA", expired_t: "\u05D4\u05D9\u05D5\u05E0\u05D4 \u05E9\u05DC\u05DA \u05D7\u05D6\u05E8\u05D4", expired_b: "\u05D0\u05E3 \u05D0\u05D7\u05D3 \u05DC\u05D0 \u05EA\u05E4\u05E1 \u05D0\u05D5\u05EA\u05D4 \u05D4\u05E4\u05E2\u05DD. \u05E0\u05E1\u05D4/\u05D9 \u05DC\u05E9\u05DC\u05D5\u05D7 \u05E2\u05D5\u05D3 \u05D0\u05D7\u05EA.", app: "Zajel", hidden: "\u05D9\u05E9 \u05DC\u05DA \u05D4\u05EA\u05E8\u05D0\u05D4 \u05D7\u05D3\u05E9\u05D4", gift_t: "\u05DE\u05EA\u05E0\u05D4 \u05DE\u05E6\u05D5\u05D5\u05EA Zajel \u{1F381}", gift_b: "\u05E4\u05EA\u05D7\u05D5 \u05D0\u05EA \u05D4\u05D0\u05E4\u05DC\u05D9\u05E7\u05E6\u05D9\u05D4 \u05DB\u05D3\u05D9 \u05DC\u05E8\u05D0\u05D5\u05EA", support_t: "\u05E6\u05D5\u05D5\u05EA Zajel" },
+  es: { landed_t: "\xA1Una paloma aterriz\xF3 contigo!", landed_b: "Una carta desde {city}, {country}", caught_t: "{name} atrap\xF3 tu paloma", caught_b: "En {city}. \xA1Saluda!", call_t: "{name} te est\xE1 llamando", voice: "Llamada de voz traducida", video: "Videollamada traducida", expired_t: "Tu paloma volvi\xF3", expired_b: "Nadie la atrap\xF3 esta vez. Prueba a enviar otra.", app: "Zajel", hidden: "Tienes una notificaci\xF3n nueva", gift_t: "Un regalo del equipo de Zajel \u{1F381}", gift_b: "Abre la app para verlo", support_t: "Equipo de Zajel" },
+  pt: { landed_t: "Um pombo pousou com voc\xEA!", landed_b: "Uma carta de {city}, {country}", caught_t: "{name} pegou o seu pombo", caught_b: "Em {city}. Diga ol\xE1!", call_t: "{name} est\xE1 ligando", voice: "Chamada de voz traduzida", video: "Videochamada traduzida", expired_t: "Seu pombo voltou", expired_b: "Ningu\xE9m o pegou desta vez. Tente enviar outro.", app: "Zajel", hidden: "Voc\xEA tem uma nova notifica\xE7\xE3o", gift_t: "Um presente da equipe Zajel \u{1F381}", gift_b: "Abra o app para ver", support_t: "Equipe Zajel" },
+  fa: { landed_t: "\u06CC\u06A9 \u06A9\u0628\u0648\u062A\u0631 \u067E\u06CC\u0634 \u062A\u0648 \u0646\u0634\u0633\u062A!", landed_b: "\u0646\u0627\u0645\u0647\u200C\u0627\u06CC \u0627\u0632 {city}\u060C {country}", caught_t: "{name} \u06A9\u0628\u0648\u062A\u0631\u062A \u0631\u0627 \u06AF\u0631\u0641\u062A", caught_b: "\u062F\u0631 {city}. \u0633\u0644\u0627\u0645 \u06A9\u0646!", call_t: "{name} \u062F\u0631 \u062D\u0627\u0644 \u062A\u0645\u0627\u0633 \u0627\u0633\u062A", voice: "\u062A\u0645\u0627\u0633 \u0635\u0648\u062A\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", video: "\u062A\u0645\u0627\u0633 \u062A\u0635\u0648\u06CC\u0631\u06CC \u062A\u0631\u062C\u0645\u0647\u200C\u0634\u062F\u0647", expired_t: "\u06A9\u0628\u0648\u062A\u0631\u062A \u0628\u0631\u06AF\u0634\u062A", expired_b: "\u0627\u06CC\u0646 \u0628\u0627\u0631 \u06A9\u0633\u06CC \u0622\u0646 \u0631\u0627 \u0646\u06AF\u0631\u0641\u062A. \u06CC\u06A9\u06CC \u062F\u06CC\u06AF\u0631 \u0628\u0641\u0631\u0633\u062A.", app: "\u0632\u0627\u062C\u0644", hidden: "\u06CC\u06A9 \u0627\u0639\u0644\u0627\u0646 \u062C\u062F\u06CC\u062F \u062F\u0627\u0631\u06CC", gift_t: "\u0647\u062F\u06CC\u0647\u200C\u0627\u06CC \u0627\u0632 \u062A\u06CC\u0645 \u0632\u0627\u062C\u0644 \u{1F381}", gift_b: "\u0628\u0631\u0646\u0627\u0645\u0647 \u0631\u0627 \u0628\u0627\u0632 \u06A9\u0646 \u062A\u0627 \u0628\u0628\u06CC\u0646\u06CC", support_t: "\u062A\u06CC\u0645 \u0632\u0627\u062C\u0644" },
+  ru: { landed_t: "\u041A \u0432\u0430\u043C \u043F\u0440\u0438\u043B\u0435\u0442\u0435\u043B \u0433\u043E\u043B\u0443\u0431\u044C!", landed_b: "\u041F\u0438\u0441\u044C\u043C\u043E \u0438\u0437 {city}, {country}", caught_t: "{name} \u043F\u043E\u0439\u043C\u0430\u043B(\u0430) \u0432\u0430\u0448\u0435\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u044F", caught_b: "\u0412 {city}. \u041F\u043E\u0437\u0434\u043E\u0440\u043E\u0432\u0430\u0439\u0442\u0435\u0441\u044C!", call_t: "{name} \u0437\u0432\u043E\u043D\u0438\u0442 \u0432\u0430\u043C", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", video: "\u0412\u0438\u0434\u0435\u043E\u0437\u0432\u043E\u043D\u043E\u043A \u0441 \u043F\u0435\u0440\u0435\u0432\u043E\u0434\u043E\u043C", expired_t: "\u0412\u0430\u0448 \u0433\u043E\u043B\u0443\u0431\u044C \u0432\u0435\u0440\u043D\u0443\u043B\u0441\u044F", expired_b: "\u0412 \u044D\u0442\u043E\u0442 \u0440\u0430\u0437 \u0435\u0433\u043E \u043D\u0438\u043A\u0442\u043E \u043D\u0435 \u043F\u043E\u0439\u043C\u0430\u043B. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0449\u0451 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0432\u0430\u0441 \u043D\u043E\u0432\u043E\u0435 \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435", gift_t: "\u041F\u043E\u0434\u0430\u0440\u043E\u043A \u043E\u0442 \u043A\u043E\u043C\u0430\u043D\u0434\u044B Zajel \u{1F381}", gift_b: "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C", support_t: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 Zajel" },
+  de: { landed_t: "Eine Taube ist bei dir gelandet!", landed_b: "Ein Brief aus {city}, {country}", caught_t: "{name} hat deine Taube gefangen", caught_b: "In {city}. Sag hallo!", call_t: "{name} ruft dich an", voice: "\xDCbersetzter Sprachanruf", video: "\xDCbersetzter Videoanruf", expired_t: "Deine Taube ist zur\xFCck", expired_b: "Diesmal hat sie niemand gefangen. Schick eine neue.", app: "Zajel", hidden: "Du hast eine neue Benachrichtigung", gift_t: "Ein Geschenk vom Zajel-Team \u{1F381}", gift_b: "\xD6ffne die App, um es zu sehen", support_t: "Zajel-Team" },
+  it: { landed_t: "Un piccione \xE8 atterrato da te!", landed_b: "Una lettera da {city}, {country}", caught_t: "{name} ha preso il tuo piccione", caught_b: "A {city}. Saluta!", call_t: "{name} ti sta chiamando", voice: "Chiamata vocale tradotta", video: "Videochiamata tradotta", expired_t: "Il tuo piccione \xE8 tornato", expired_b: "Questa volta nessuno l'ha preso. Prova a mandarne un altro.", app: "Zajel", hidden: "Hai una nuova notifica", gift_t: "Un regalo dal team di Zajel \u{1F381}", gift_b: "Apri l\u2019app per scoprirlo", support_t: "Team di Zajel" },
+  uk: { landed_t: "\u0414\u043E \u0442\u0435\u0431\u0435 \u043F\u0440\u0438\u043B\u0435\u0442\u0456\u0432 \u0433\u043E\u043B\u0443\u0431!", landed_b: "\u041B\u0438\u0441\u0442 \u0456\u0437 {city}, {country}", caught_t: "{name} \u0441\u043F\u0456\u0439\u043C\u0430\u0432(\u043B\u0430) \u0442\u0432\u043E\u0433\u043E \u0433\u043E\u043B\u0443\u0431\u0430", caught_b: "\u0423 {city}. \u041F\u0440\u0438\u0432\u0456\u0442\u0430\u0439\u0441\u044F!", call_t: "{name} \u0434\u0437\u0432\u043E\u043D\u0438\u0442\u044C \u0442\u043E\u0431\u0456", voice: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u0438\u0439 \u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", video: "\u0412\u0456\u0434\u0435\u043E\u0434\u0437\u0432\u0456\u043D\u043E\u043A \u0456\u0437 \u043F\u0435\u0440\u0435\u043A\u043B\u0430\u0434\u043E\u043C", expired_t: "\u0422\u0432\u0456\u0439 \u0433\u043E\u043B\u0443\u0431 \u043F\u043E\u0432\u0435\u0440\u043D\u0443\u0432\u0441\u044F", expired_b: "\u0426\u044C\u043E\u0433\u043E \u0440\u0430\u0437\u0443 \u0439\u043E\u0433\u043E \u043D\u0456\u0445\u0442\u043E \u043D\u0435 \u0441\u043F\u0456\u0439\u043C\u0430\u0432. \u041D\u0430\u0434\u0456\u0448\u043B\u0438 \u0449\u0435 \u043E\u0434\u043D\u043E\u0433\u043E.", app: "Zajel", hidden: "\u0423 \u0442\u0435\u0431\u0435 \u043D\u043E\u0432\u0435 \u0441\u043F\u043E\u0432\u0456\u0449\u0435\u043D\u043D\u044F", gift_t: "\u041F\u043E\u0434\u0430\u0440\u0443\u043D\u043E\u043A \u0432\u0456\u0434 \u043A\u043E\u043C\u0430\u043D\u0434\u0438 Zajel \u{1F381}", gift_b: "\u0412\u0456\u0434\u043A\u0440\u0438\u0439 \u0437\u0430\u0441\u0442\u043E\u0441\u0443\u043D\u043E\u043A, \u0449\u043E\u0431 \u043F\u043E\u0431\u0430\u0447\u0438\u0442\u0438", support_t: "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 Zajel" },
+  zh: { landed_t: "\u4E00\u53EA\u4FE1\u9E3D\u843D\u5728\u4F60\u8FD9\u91CC\uFF01", landed_b: "\u6765\u81EA{country}{city}\u7684\u4FE1", caught_t: "{name} \u63A5\u4F4F\u4E86\u4F60\u7684\u4FE1\u9E3D", caught_b: "\u5728{city}\u3002\u6253\u4E2A\u62DB\u547C\u5427\uFF01", call_t: "{name} \u6B63\u5728\u547C\u53EB\u4F60", voice: "\u7FFB\u8BD1\u8BED\u97F3\u901A\u8BDD", video: "\u7FFB\u8BD1\u89C6\u9891\u901A\u8BDD", expired_t: "\u4F60\u7684\u4FE1\u9E3D\u98DE\u56DE\u6765\u4E86", expired_b: "\u8FD9\u6B21\u6CA1\u6709\u4EBA\u63A5\u4F4F\u5B83\u3002\u518D\u653E\u98DE\u4E00\u53EA\u5427\u3002", app: "Zajel", hidden: "\u4F60\u6709\u4E00\u6761\u65B0\u901A\u77E5", gift_t: "\u6765\u81EA Zajel \u56E2\u961F\u7684\u793C\u7269 \u{1F381}", gift_b: "\u6253\u5F00\u5E94\u7528\u67E5\u770B", support_t: "Zajel \u56E2\u961F" },
+  hi: { landed_t: "\u0906\u092A\u0915\u0947 \u092A\u093E\u0938 \u090F\u0915 \u0915\u092C\u0942\u0924\u0930 \u0909\u0924\u0930\u093E!", landed_b: "{city}, {country} \u0938\u0947 \u090F\u0915 \u091A\u093F\u091F\u094D\u0920\u0940", caught_t: "{name} \u0928\u0947 \u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u092A\u0915\u0921\u093C\u093E", caught_b: "{city} \u092E\u0947\u0902\u0964 \u0928\u092E\u0938\u094D\u0924\u0947 \u0915\u0939\u093F\u090F!", call_t: "{name} \u0915\u0949\u0932 \u0915\u0930 \u0930\u0939\u0947 \u0939\u0948\u0902", voice: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0949\u0907\u0938 \u0915\u0949\u0932", video: "\u0905\u0928\u0941\u0935\u093E\u0926\u093F\u0924 \u0935\u0940\u0921\u093F\u092F\u094B \u0915\u0949\u0932", expired_t: "\u0906\u092A\u0915\u093E \u0915\u092C\u0942\u0924\u0930 \u0932\u094C\u091F \u0906\u092F\u093E", expired_b: "\u0907\u0938 \u092C\u093E\u0930 \u0915\u093F\u0938\u0940 \u0928\u0947 \u0928\u0939\u0940\u0902 \u092A\u0915\u0921\u093C\u093E\u0964 \u090F\u0915 \u0914\u0930 \u092D\u0947\u091C\u093F\u090F\u0964", app: "Zajel", hidden: "\u0906\u092A\u0915\u0947 \u0932\u093F\u090F \u090F\u0915 \u0928\u0908 \u0938\u0942\u091A\u0928\u093E \u0939\u0948", gift_t: "\u091C\u093C\u093E\u091C\u0947\u0932 \u091F\u0940\u092E \u0915\u0940 \u0913\u0930 \u0938\u0947 \u090F\u0915 \u0909\u092A\u0939\u093E\u0930 \u{1F381}", gift_b: "\u0926\u0947\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F \u0910\u092A \u0916\u094B\u0932\u0947\u0902", support_t: "\u091C\u093C\u093E\u091C\u0947\u0932 \u091F\u0940\u092E" },
+  ku: { landed_t: "Kevokek li cem te daket!", landed_b: "Nameyek ji {city}, {country}", caught_t: "{name} kevoka te girt", caught_b: "Li {city}. Silav bike!", call_t: "{name} li te digere", voice: "Banga deng\xEE ya wergerand\xEE", video: "Banga v\xEEdyoy\xEE ya wergerand\xEE", expired_t: "Kevoka te vegeriya", expired_b: "V\xEA car\xEA kes\xEE ew negirt. Yeke din bi\u015F\xEEne.", app: "Zajel", hidden: "Agahdariyek n\xFB ji te re heye", gift_t: "Diyariyek ji t\xEEma Zajel \u{1F381}", gift_b: "Sepan\xEA veke da ku bib\xEEn\xEE", support_t: "T\xEEma Zajel" }
 };
 function fmt(lang, key, vars = {}) {
   const s = (T[lang] ?? T.en)[key];
@@ -666,14 +666,16 @@ var sendPigeon = onCall(async (req) => {
     const vip = isVip(u);
     const freeLeft = u.freeDate === todayUtc() ? u.freeLeft ?? 0 : FREE_PIGEONS_PER_DAY;
     const useFree = !vip && freeLeft > 0;
-    charged = (vip || useFree ? 0 : COST.extra) + (want && !vip ? COST.dest : 0) + (fast ? COST.fast : 0);
-    if (FREE_MODE && !useFree && !vip) fail("daily_limit");
+    const useGift = !vip && !useFree && (u.giftPigeons ?? 0) > 0;
+    charged = (vip || useFree || useGift ? 0 : COST.extra) + (want && !vip ? COST.dest : 0) + (fast ? COST.fast : 0);
+    if (FREE_MODE && !useFree && !useGift && !vip) fail("daily_limit");
     if (u.points < charged) fail("no_points");
     tx.update(userRef, {
       points: import_firestore.FieldValue.increment(-charged),
       freeDate: todayUtc(),
       freeLeft: useFree ? freeLeft - 1 : freeLeft,
-      lastActive: import_firestore.Timestamp.now()
+      lastActive: import_firestore.Timestamp.now(),
+      ...useGift ? { giftPigeons: import_firestore.FieldValue.increment(-1) } : {}
     });
     pigeon = {
       from: uid,
@@ -937,6 +939,7 @@ var sendMessage = onCall(async (req) => {
   const { src, tr } = text ? await translateAll(text, [me.lang, them.lang], me.lang) : { src: me.lang, tr: {} };
   const now = import_firestore.Timestamp.now();
   const label = media ? mediaLabel(media.kind, String(media.name ?? "")) : "";
+  if ((c.hiddenFor ?? []).length) await ref.update({ hiddenFor: [] });
   const ttlH = Number(c.ttlH) || 0;
   await ref.collection("messages").add({
     from: uid,
@@ -990,6 +993,25 @@ var setChatTtl = onCall(async (req) => {
   await ref.update({ ttlH: hours, ttlBy: uid, updatedAt: now, ...hours ? { ttlEver: true } : {} });
   await ref.collection("messages").add({ from: uid, text: "", tr: {}, at: now, system: "ttl", hours });
   return { ok: true };
+});
+var deleteChat = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { ref, c } = await memberChat(uid, String(req.data?.chatId ?? ""));
+  const hidden = /* @__PURE__ */ new Set([...c.hiddenFor ?? [], uid]);
+  const everyone = c.members.every((m) => hidden.has(m));
+  if (!everyone) {
+    await ref.update({ hiddenFor: import_firestore.FieldValue.arrayUnion(uid), [`clearedAt.${uid}`]: import_firestore.Timestamp.now() });
+    return { ok: true };
+  }
+  for (; ; ) {
+    const page = await ref.collection("messages").limit(400).get();
+    if (page.empty) break;
+    const b = db().batch();
+    page.docs.forEach((d) => b.delete(d.ref));
+    await b.commit();
+  }
+  await ref.delete();
+  return { ok: true, removed: true };
 });
 async function purgeExpiredMessages() {
   const chats = await db().collection("chats").where("ttlEver", "==", true).limit(500).get();
@@ -1330,6 +1352,419 @@ async function purgeErrors() {
   return old.size;
 }
 
+// src/admin.ts
+var import_auth2 = require("firebase-admin/auth");
+
+// src/backup.ts
+var import_node_fs4 = require("node:fs");
+var import_node_os = require("node:os");
+var import_node_path4 = require("node:path");
+var import_node_zlib = require("node:zlib");
+var import_firestore3 = require("firebase-admin/firestore");
+var COLLECTIONS = ["users", "profiles", "pigeons", "chats", "reports", "calls", "config", "admins", "adminLog"];
+var KEEP = 7;
+var MAX_DOCS = 25e3;
+var backupDir = () => env("BACKUP_DIR", (0, import_node_path4.join)((0, import_node_os.homedir)(), "zajel-backups"));
+function plain(v) {
+  if (v instanceof import_firestore3.Timestamp) return { _ts: v.toMillis() };
+  if (Array.isArray(v)) return v.map(plain);
+  if (v && typeof v === "object") {
+    if (typeof v.path === "string" && typeof v.id === "string" && v.firestore) return { _ref: v.path };
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]));
+  }
+  return v;
+}
+var fileFor = (d) => (0, import_node_path4.join)(backupDir(), `zajel-${d.toISOString().slice(0, 10)}.json.gz`);
+var backupExists = (d = /* @__PURE__ */ new Date()) => (0, import_node_fs4.existsSync)(fileFor(d));
+async function runBackup() {
+  const dir2 = backupDir();
+  if (!(0, import_node_fs4.existsSync)(dir2)) (0, import_node_fs4.mkdirSync)(dir2, { recursive: true, mode: 448 });
+  const file2 = fileFor(/* @__PURE__ */ new Date());
+  const gz = (0, import_node_zlib.createGzip)();
+  const out = gz.pipe((0, import_node_fs4.createWriteStream)(file2, { mode: 384 }));
+  const write = (s) => new Promise((res) => {
+    if (!gz.write(s)) gz.once("drain", () => res());
+    else res();
+  });
+  let docs = 0, truncated = false;
+  await write(`{"at":${Date.now()},"collections":{`);
+  for (const [ci, name] of COLLECTIONS.entries()) {
+    await write(`${ci ? "," : ""}${JSON.stringify(name)}:[`);
+    const snap = await db().collection(name).limit(Math.max(0, MAX_DOCS - docs)).get();
+    let first = true;
+    for (const d of snap.docs) {
+      const row = { id: d.id, data: plain(d.data()) };
+      docs++;
+      if (name === "chats" && docs < MAX_DOCS) {
+        const m = await d.ref.collection("messages").orderBy("at").limit(Math.min(2e3, MAX_DOCS - docs)).get();
+        docs += m.size;
+        row.messages = m.docs.map((x) => ({ id: x.id, data: plain(x.data()) }));
+      }
+      await write((first ? "" : ",") + JSON.stringify(row));
+      first = false;
+    }
+    if (docs >= MAX_DOCS) truncated = true;
+    await write("]");
+  }
+  await write(`},"docs":${docs},"truncated":${truncated}}`);
+  gz.end();
+  await new Promise((res, rej) => {
+    out.on("finish", () => res());
+    out.on("error", rej);
+  });
+  const files = (0, import_node_fs4.readdirSync)(dir2).filter((f) => /^zajel-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(f)).sort();
+  for (const f of files.slice(0, Math.max(0, files.length - KEEP))) (0, import_node_fs4.rmSync)((0, import_node_path4.join)(dir2, f), { force: true });
+  logger.info("backup written", { file: file2, docs, truncated });
+  return { file: file2, docs, truncated };
+}
+function listBackups() {
+  const dir2 = backupDir();
+  if (!(0, import_node_fs4.existsSync)(dir2)) return [];
+  return (0, import_node_fs4.readdirSync)(dir2).filter((f) => f.endsWith(".json.gz")).sort().reverse().map((f) => {
+    const s = (0, import_node_fs4.statSync)((0, import_node_path4.join)(dir2, f));
+    return { name: f, bytes: s.size, at: s.mtimeMs };
+  });
+}
+
+// src/admin.ts
+var RANK = { reviewer: 1, mod: 2, admin: 3 };
+var ROLES = Object.keys(RANK);
+async function roleOf(uid) {
+  const [user, doc] = await Promise.all([(0, import_auth2.getAuth)().getUser(uid).catch(() => null), db().doc(`admins/${uid}`).get()]);
+  const email = (user?.email ?? "").toLowerCase();
+  const envAdmins = env("ADMIN_EMAILS", "delberinalkhalil@gmail.com").toLowerCase().split(/[,\s]+/).filter(Boolean);
+  if (email && user?.emailVerified === true && envAdmins.includes(email)) return { role: "admin", email };
+  const ownerUids = env("ADMIN_UIDS", "8oPV1gDACzg2khRI1jdPM69Wpom1").split(/[,\s]+/).filter(Boolean);
+  if (ownerUids.includes(uid)) return { role: "admin", email };
+  const r2 = doc.data()?.role;
+  return { role: r2 && r2 in RANK ? r2 : null, email };
+}
+async function needRole(req, min) {
+  const uid = requireUid(req);
+  const { role, email } = await roleOf(uid);
+  if (!role || RANK[role] < RANK[min]) throw new HttpsError("permission-denied", "not_admin");
+  return { uid, role, email };
+}
+async function logAdmin(by, action, extra) {
+  await db().collection("adminLog").add({ by: by.uid, email: by.email, action, ...extra, at: import_firestore.Timestamp.now() });
+}
+var ms = (t) => t?.toMillis ? t.toMillis() : null;
+var ago = (h) => import_firestore.Timestamp.fromMillis(Date.now() - h * 36e5);
+var adminMe = onCall(async (req) => {
+  const uid = requireUid(req);
+  const { role, email } = await roleOf(uid);
+  return { role, email };
+});
+var adminStats = onCall(async (req) => {
+  await needRole(req, "reviewer");
+  const c = (q) => q.count().get().then((s) => s.data().count);
+  const users = db().collection("users"), pigeons = db().collection("pigeons");
+  const [total, day, week, pigeonsDay, pigeonsWeek, caughtWeek, chats, openReports, review, banned, errorsDay] = await Promise.all([
+    c(users),
+    c(users.where("lastActive", ">=", ago(24))),
+    c(users.where("lastActive", ">=", ago(24 * 7))),
+    c(pigeons.where("createdAt", ">=", ago(24))),
+    c(pigeons.where("createdAt", ">=", ago(24 * 7))),
+    c(pigeons.where("caughtAt", ">=", ago(24 * 7))),
+    c(db().collection("chats")),
+    c(db().collection("reports").where("status", "==", "open")),
+    c(users.where("review", "==", true)),
+    c(users.where("banned", "==", true)),
+    c(db().collection("errors").where("at", ">=", ago(24)))
+  ]);
+  return {
+    users: total,
+    active24h: day,
+    active7d: week,
+    pigeons24h: pigeonsDay,
+    pigeons7d: pigeonsWeek,
+    catchRate7d: pigeonsWeek ? Math.round(caughtWeek / pigeonsWeek * 100) : 0,
+    chats,
+    openReports,
+    review,
+    banned,
+    errors24h: errorsDay
+  };
+});
+async function nameOf(uid) {
+  const p = (await db().doc(`profiles/${uid}`).get()).data();
+  return { uid, name: p?.name ?? "?", country: p?.countryName ?? "", photoUrl: p?.photoUrl ?? "" };
+}
+var adminReports = onCall(async (req) => {
+  await needRole(req, "reviewer");
+  const status = ["open", "actioned", "dismissed", "all"].includes(req.data?.status) ? req.data.status : "open";
+  const q = await db().collection("reports").orderBy("at", "desc").limit(300).get();
+  const rows = q.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r2) => status === "all" || (r2.status ?? "open") === status).slice(0, 100);
+  const week = Date.now() - 7 * 864e5;
+  const counts = {};
+  for (const d of q.docs) {
+    const r2 = d.data();
+    if (ms(r2.at) >= week) counts[r2.target] = (counts[r2.target] ?? 0) + 1;
+  }
+  const ids = [...new Set(rows.flatMap((r2) => [r2.by, r2.target]))];
+  const names = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await nameOf(id)])));
+  const flagged = await db().collection("users").where("review", "==", true).limit(50).get();
+  return {
+    reports: rows.map((r2) => ({
+      id: r2.id,
+      reason: r2.reason,
+      note: r2.note ?? "",
+      chatId: r2.chatId ?? "",
+      status: r2.status ?? "open",
+      at: ms(r2.at),
+      by: names[r2.by],
+      target: names[r2.target],
+      weekCount: counts[r2.target] ?? 0
+    })),
+    review: await Promise.all(flagged.docs.map(async (d) => ({ ...await nameOf(d.id), reason: d.data().reviewReason ?? "", at: ms(d.data().reviewAt) })))
+  };
+});
+var adminUser = onCall(async (req) => {
+  await needRole(req, "reviewer");
+  const uid = String(req.data?.uid ?? "");
+  const u = (await db().doc(`users/${uid}`).get()).data();
+  if (!u) throw new HttpsError("not-found", "not_found");
+  const reports = await db().collection("reports").where("target", "==", uid).limit(50).get();
+  return {
+    ...await nameOf(uid),
+    lang: u.lang,
+    createdAt: ms(u.createdAt),
+    lastActive: ms(u.lastActive),
+    banned: !!u.banned,
+    review: !!u.review,
+    restrictedUntil: ms(u.restrictedUntil),
+    warnings: (u.warnings ?? []).length,
+    giftPigeons: u.giftPigeons ?? 0,
+    points: u.points ?? 0,
+    vipUntil: isVip(u) ? ms(u.vipUntil) : null,
+    reports: reports.docs.map((d) => ({ id: d.id, reason: d.data().reason, at: ms(d.data().at), status: d.data().status ?? "open" }))
+  };
+});
+var adminChat = onCall(async (req) => {
+  const me = await needRole(req, "mod");
+  const reportId = String(req.data?.reportId ?? "");
+  const rep = (await db().doc(`reports/${reportId}`).get()).data();
+  if (!rep?.chatId) throw new HttpsError("failed-precondition", "no_chat_in_report");
+  const chat = (await db().doc(`chats/${rep.chatId}`).get()).data();
+  if (!chat) throw new HttpsError("not-found", "chat_gone");
+  const m = await db().collection(`chats/${rep.chatId}/messages`).orderBy("at", "desc").limit(100).get();
+  await logAdmin(me, "view_chat", { reportId, chatId: rep.chatId, target: rep.target });
+  return {
+    members: await Promise.all(chat.members.map(nameOf)),
+    messages: m.docs.reverse().map((d) => {
+      const x = d.data();
+      return { id: d.id, from: x.from, text: x.deleted ? "" : x.text ?? "", deleted: !!x.deleted, media: x.media?.kind ?? null, at: ms(x.at), system: x.system ?? null };
+    })
+  };
+});
+var ACTIONS = ["warn", "restrict", "unrestrict", "suspend", "unsuspend", "dismiss", "clear_review"];
+var adminAction = onCall(async (req) => {
+  const me = await needRole(req, "mod");
+  const action = String(req.data?.action ?? "");
+  if (!ACTIONS.includes(action)) throw new HttpsError("invalid-argument", "bad_action");
+  const uid = String(req.data?.uid ?? "");
+  const reportId = req.data?.reportId ? String(req.data.reportId) : "";
+  const note = normalize(req.data?.note).slice(0, 300);
+  const ref = db().doc(`users/${uid}`);
+  if (action !== "dismiss" && !(await ref.get()).exists) throw new HttpsError("not-found", "not_found");
+  const now = import_firestore.Timestamp.now();
+  let extra = {};
+  switch (action) {
+    case "warn":
+      await ref.update({ warnings: import_firestore.FieldValue.arrayUnion({ at: now, note }), notice: { kind: "warn", note, at: now } });
+      break;
+    case "restrict": {
+      const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 1)));
+      const until = import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5);
+      await ref.update({ restrictedUntil: until, notice: { kind: "restrict", note, at: now, until } });
+      extra = { days };
+      break;
+    }
+    case "unrestrict":
+      await ref.update({ restrictedUntil: import_firestore.FieldValue.delete(), notice: import_firestore.FieldValue.delete() });
+      break;
+    case "suspend":
+      await ref.update({ banned: true, receiving: false, bannedAt: now, banReason: "moderator", review: false });
+      break;
+    case "unsuspend":
+      await ref.update({ banned: false, receiving: true, banReason: import_firestore.FieldValue.delete(), review: false });
+      break;
+    case "clear_review":
+      await ref.update({ review: false });
+      break;
+    case "dismiss":
+      break;
+  }
+  if (reportId) await db().doc(`reports/${reportId}`).update({ status: action === "dismiss" ? "dismissed" : "actioned", handledBy: me.uid, handledAt: now });
+  await logAdmin(me, action, { target: uid, reportId, note, ...extra });
+  return { ok: true };
+});
+var adminLog = onCall(async (req) => {
+  await needRole(req, "mod");
+  const q = await db().collection("adminLog").orderBy("at", "desc").limit(200).get();
+  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })) };
+});
+var adminErrors = onCall(async (req) => {
+  await needRole(req, "admin");
+  const q = await db().collection("errors").orderBy("at", "desc").limit(200).get();
+  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })), backups: listBackups() };
+});
+var adminSetRole = onCall(async (req) => {
+  const me = await needRole(req, "admin");
+  const email = String(req.data?.email ?? "").trim().toLowerCase();
+  const role = req.data?.role == null || req.data.role === "" ? null : String(req.data.role);
+  if (role && !ROLES.includes(role)) throw new HttpsError("invalid-argument", "bad_role");
+  const user = await (0, import_auth2.getAuth)().getUserByEmail(email).catch(() => null);
+  if (!user) throw new HttpsError("not-found", "no_such_account");
+  if (user.uid === me.uid) throw new HttpsError("failed-precondition", "not_yourself");
+  if (role) await db().doc(`admins/${user.uid}`).set({ role, email, at: import_firestore.Timestamp.now(), by: me.uid });
+  else await db().doc(`admins/${user.uid}`).delete();
+  await logAdmin(me, "set_role", { target: user.uid, email, role });
+  return { ok: true };
+});
+var adminRoles = onCall(async (req) => {
+  await needRole(req, "admin");
+  const q = await db().collection("admins").get();
+  return { rows: q.docs.map((d) => ({ uid: d.id, email: d.data().email, role: d.data().role })) };
+});
+var adminAnnounce = onCall(async (req) => {
+  const me = await needRole(req, "admin");
+  const text = normalize(req.data?.text).slice(0, 200);
+  const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 3)));
+  const ref = db().doc("config/announcement");
+  if (!text) await ref.set({ active: false, at: import_firestore.Timestamp.now() });
+  else {
+    const { src, tr } = await translateAll(text, [...LANGS]);
+    await ref.set({ active: true, text, src, tr, at: import_firestore.Timestamp.now(), until: import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5) });
+  }
+  await logAdmin(me, "announce", { text, days });
+  return { ok: true };
+});
+var adminFind = onCall(async (req) => {
+  await needRole(req, "reviewer");
+  const q = normalize(req.data?.q).trim();
+  if (q.length < 2) return { rows: [] };
+  const ids = /* @__PURE__ */ new Set();
+  if (q.includes("@")) {
+    const a = await (0, import_auth2.getAuth)().getUserByEmail(q.toLowerCase()).catch(() => null);
+    if (a) ids.add(a.uid);
+  } else if (/^[A-Za-z0-9]{20,40}$/.test(q) && (await db().doc(`users/${q}`).get()).exists) ids.add(q);
+  else {
+    const byName = await db().collection("profiles").where("name", ">=", q).where("name", "<", q + "\uF8FF").limit(20).get();
+    byName.docs.forEach((d) => ids.add(d.id));
+  }
+  return { rows: await Promise.all([...ids].map(nameOf)) };
+});
+var adminGrant = onCall(async (req) => {
+  const me = await needRole(req, "mod");
+  const uid = String(req.data?.uid ?? "");
+  const ref = db().doc(`users/${uid}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", "not_found");
+  const u = snap.data();
+  const int = (v, max) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+  const pigeons = int(req.data?.pigeons, 500), points = int(req.data?.points, 1e5), vipDays = int(req.data?.vipDays, 365);
+  const revokeVip = req.data?.revokeVip === true;
+  if (!pigeons && !points && !vipDays && !revokeVip) throw new HttpsError("invalid-argument", "nothing_to_grant");
+  const now = Date.now();
+  const upd = {};
+  if (pigeons) upd.giftPigeons = import_firestore.FieldValue.increment(pigeons);
+  if (points) upd.points = import_firestore.FieldValue.increment(points);
+  let vipUntil = null;
+  if (revokeVip) {
+    upd.vipUntil = import_firestore.Timestamp.fromMillis(now);
+    upd.vipActive = false;
+  } else if (vipDays) {
+    const from = isVip(u) ? u.vipUntil.toMillis() : now;
+    vipUntil = import_firestore.Timestamp.fromMillis(from + vipDays * 864e5);
+    upd.vipUntil = vipUntil;
+    upd.vipActive = true;
+  }
+  const note = normalize(req.data?.note).slice(0, 200);
+  if (pigeons || points || vipDays) upd.notice = { kind: "gift", pigeons, points, vipDays, note, at: import_firestore.Timestamp.now() };
+  await ref.update(upd);
+  if (revokeVip || vipDays) await db().doc(`profiles/${uid}`).set({ vip: !revokeVip }, { merge: true });
+  await logAdmin(me, "grant", { target: uid, pigeons, points, vipDays, revokeVip, note });
+  if (pigeons || points || vipDays) {
+    await pushTo(uid, { title: fmt(u.lang, "gift_t"), body: fmt(u.lang, "gift_b"), data: { type: "gift" } }, "system").catch(() => void 0);
+  }
+  return { ok: true, vipUntil: vipUntil ? vipUntil.toMillis() : null };
+});
+
+// src/support.ts
+var TEAM_LANGS = ["ar", "en"];
+var MAX = 2e3;
+var supportSend = onCall(async (req) => {
+  const uid = requireUid(req);
+  const text = normalize(req.data?.text).slice(0, MAX);
+  if (!text) bad("empty");
+  const u = await getUser(uid);
+  const problem = checkText(text, MAX, false);
+  if (problem) bad(problem);
+  const { src, tr } = await translateAll(text, [...TEAM_LANGS, u.lang]);
+  const ref = db().doc(`support/${uid}`);
+  const now = import_firestore.Timestamp.now();
+  await ref.collection("messages").add({ from: "user", text, src, tr, at: now });
+  await ref.set({
+    name: u.name,
+    lang: u.lang,
+    country: u.countryName ?? "",
+    updatedAt: now,
+    last: { text: text.slice(0, 140), from: "user", at: now },
+    unreadTeam: import_firestore.FieldValue.increment(1),
+    unreadUser: 0
+  }, { merge: true });
+  return { ok: true };
+});
+var supportRead = onCall(async (req) => {
+  const uid = requireUid(req);
+  const ref = db().doc(`support/${uid}`);
+  if ((await ref.get()).exists) await ref.update({ unreadUser: 0 });
+  return { ok: true };
+});
+var adminSupportList = onCall(async (req) => {
+  await needRole(req, "mod");
+  const q = await db().collection("support").orderBy("updatedAt", "desc").limit(100).get();
+  return {
+    rows: q.docs.map((d) => {
+      const x = d.data();
+      return { uid: d.id, name: x.name ?? "", country: x.country ?? "", lang: x.lang ?? "", last: x.last?.text ?? "", lastFrom: x.last?.from ?? "", unread: x.unreadTeam ?? 0, at: x.updatedAt?.toMillis?.() ?? null };
+    })
+  };
+});
+var adminSupportThread = onCall(async (req) => {
+  await needRole(req, "mod");
+  const uid = String(req.data?.uid ?? "");
+  const ref = db().doc(`support/${uid}`);
+  const doc = await ref.get();
+  if (!doc.exists) throw new HttpsError("not-found", "not_found");
+  const m = await ref.collection("messages").orderBy("at", "desc").limit(200).get();
+  await ref.update({ unreadTeam: 0 });
+  return {
+    who: await nameOf(uid),
+    lang: doc.data().lang ?? "",
+    messages: m.docs.reverse().map((d) => {
+      const x = d.data();
+      return { id: d.id, from: x.from, text: x.text, ar: x.tr?.ar ?? "", en: x.tr?.en ?? "", byEmail: x.byEmail ?? "", at: x.at?.toMillis?.() ?? null };
+    })
+  };
+});
+var adminSupportReply = onCall(async (req) => {
+  const me = await needRole(req, "mod");
+  const uid = String(req.data?.uid ?? "");
+  const text = normalize(req.data?.text).slice(0, MAX);
+  if (!text) bad("empty");
+  const u = await getUser(uid);
+  const { src, tr } = await translateAll(text, [u.lang, ...TEAM_LANGS]);
+  const ref = db().doc(`support/${uid}`);
+  const now = import_firestore.Timestamp.now();
+  await ref.collection("messages").add({ from: "team", by: me.uid, byEmail: me.email, text, src, tr, at: now });
+  await ref.set({ name: u.name, lang: u.lang, updatedAt: now, last: { text: (tr[u.lang] ?? text).slice(0, 140), from: "team", at: now }, unreadUser: import_firestore.FieldValue.increment(1), unreadTeam: 0 }, { merge: true });
+  await logAdmin(me, "support_reply", { target: uid });
+  await pushTo(uid, { title: fmt(u.lang, "support_t"), body: (tr[u.lang] ?? text).slice(0, 120), data: { type: "support" } }, "message").catch(() => void 0);
+  return { ok: true };
+});
+
 // src/facts.ts
 var FACTS = {
   AF: "Afghanistan is home to the Minaret of Jam, a 65-metre tower built in the 12th century.",
@@ -1524,292 +1959,6 @@ var countryFact = onCall(async (req) => {
   return { fact: fact || en };
 });
 
-// src/admin.ts
-var import_auth2 = require("firebase-admin/auth");
-
-// src/backup.ts
-var import_node_fs4 = require("node:fs");
-var import_node_os = require("node:os");
-var import_node_path4 = require("node:path");
-var import_node_zlib = require("node:zlib");
-var import_firestore3 = require("firebase-admin/firestore");
-var COLLECTIONS = ["users", "profiles", "pigeons", "chats", "reports", "calls", "config", "admins", "adminLog"];
-var KEEP = 7;
-var MAX_DOCS = 25e3;
-var backupDir = () => env("BACKUP_DIR", (0, import_node_path4.join)((0, import_node_os.homedir)(), "zajel-backups"));
-function plain(v) {
-  if (v instanceof import_firestore3.Timestamp) return { _ts: v.toMillis() };
-  if (Array.isArray(v)) return v.map(plain);
-  if (v && typeof v === "object") {
-    if (typeof v.path === "string" && typeof v.id === "string" && v.firestore) return { _ref: v.path };
-    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, plain(x)]));
-  }
-  return v;
-}
-var fileFor = (d) => (0, import_node_path4.join)(backupDir(), `zajel-${d.toISOString().slice(0, 10)}.json.gz`);
-var backupExists = (d = /* @__PURE__ */ new Date()) => (0, import_node_fs4.existsSync)(fileFor(d));
-async function runBackup() {
-  const dir2 = backupDir();
-  if (!(0, import_node_fs4.existsSync)(dir2)) (0, import_node_fs4.mkdirSync)(dir2, { recursive: true, mode: 448 });
-  const file2 = fileFor(/* @__PURE__ */ new Date());
-  const gz = (0, import_node_zlib.createGzip)();
-  const out = gz.pipe((0, import_node_fs4.createWriteStream)(file2, { mode: 384 }));
-  const write = (s) => new Promise((res) => {
-    if (!gz.write(s)) gz.once("drain", () => res());
-    else res();
-  });
-  let docs = 0, truncated = false;
-  await write(`{"at":${Date.now()},"collections":{`);
-  for (const [ci, name] of COLLECTIONS.entries()) {
-    await write(`${ci ? "," : ""}${JSON.stringify(name)}:[`);
-    const snap = await db().collection(name).limit(Math.max(0, MAX_DOCS - docs)).get();
-    let first = true;
-    for (const d of snap.docs) {
-      const row = { id: d.id, data: plain(d.data()) };
-      docs++;
-      if (name === "chats" && docs < MAX_DOCS) {
-        const m = await d.ref.collection("messages").orderBy("at").limit(Math.min(2e3, MAX_DOCS - docs)).get();
-        docs += m.size;
-        row.messages = m.docs.map((x) => ({ id: x.id, data: plain(x.data()) }));
-      }
-      await write((first ? "" : ",") + JSON.stringify(row));
-      first = false;
-    }
-    if (docs >= MAX_DOCS) truncated = true;
-    await write("]");
-  }
-  await write(`},"docs":${docs},"truncated":${truncated}}`);
-  gz.end();
-  await new Promise((res, rej) => {
-    out.on("finish", () => res());
-    out.on("error", rej);
-  });
-  const files = (0, import_node_fs4.readdirSync)(dir2).filter((f) => /^zajel-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(f)).sort();
-  for (const f of files.slice(0, Math.max(0, files.length - KEEP))) (0, import_node_fs4.rmSync)((0, import_node_path4.join)(dir2, f), { force: true });
-  logger.info("backup written", { file: file2, docs, truncated });
-  return { file: file2, docs, truncated };
-}
-function listBackups() {
-  const dir2 = backupDir();
-  if (!(0, import_node_fs4.existsSync)(dir2)) return [];
-  return (0, import_node_fs4.readdirSync)(dir2).filter((f) => f.endsWith(".json.gz")).sort().reverse().map((f) => {
-    const s = (0, import_node_fs4.statSync)((0, import_node_path4.join)(dir2, f));
-    return { name: f, bytes: s.size, at: s.mtimeMs };
-  });
-}
-
-// src/admin.ts
-var RANK = { reviewer: 1, mod: 2, admin: 3 };
-var ROLES = Object.keys(RANK);
-async function roleOf(uid) {
-  const [user, doc] = await Promise.all([(0, import_auth2.getAuth)().getUser(uid).catch(() => null), db().doc(`admins/${uid}`).get()]);
-  const email = (user?.email ?? "").toLowerCase();
-  const envAdmins = env("ADMIN_EMAILS", "delberinalkhalil@gmail.com").toLowerCase().split(/[,\s]+/).filter(Boolean);
-  if (email && user?.emailVerified === true && envAdmins.includes(email)) return { role: "admin", email };
-  const ownerUids = env("ADMIN_UIDS", "8oPV1gDACzg2khRI1jdPM69Wpom1").split(/[,\s]+/).filter(Boolean);
-  if (ownerUids.includes(uid)) return { role: "admin", email };
-  const r2 = doc.data()?.role;
-  return { role: r2 && r2 in RANK ? r2 : null, email };
-}
-async function need(req, min) {
-  const uid = requireUid(req);
-  const { role, email } = await roleOf(uid);
-  if (!role || RANK[role] < RANK[min]) throw new HttpsError("permission-denied", "not_admin");
-  return { uid, role, email };
-}
-async function log(by, action, extra) {
-  await db().collection("adminLog").add({ by: by.uid, email: by.email, action, ...extra, at: import_firestore.Timestamp.now() });
-}
-var ms = (t) => t?.toMillis ? t.toMillis() : null;
-var ago = (h) => import_firestore.Timestamp.fromMillis(Date.now() - h * 36e5);
-var adminMe = onCall(async (req) => {
-  const uid = requireUid(req);
-  const { role, email } = await roleOf(uid);
-  return { role, email };
-});
-var adminStats = onCall(async (req) => {
-  await need(req, "reviewer");
-  const c = (q) => q.count().get().then((s) => s.data().count);
-  const users = db().collection("users"), pigeons = db().collection("pigeons");
-  const [total, day, week, pigeonsDay, pigeonsWeek, caughtWeek, chats, openReports, review, banned, errorsDay] = await Promise.all([
-    c(users),
-    c(users.where("lastActive", ">=", ago(24))),
-    c(users.where("lastActive", ">=", ago(24 * 7))),
-    c(pigeons.where("createdAt", ">=", ago(24))),
-    c(pigeons.where("createdAt", ">=", ago(24 * 7))),
-    c(pigeons.where("caughtAt", ">=", ago(24 * 7))),
-    c(db().collection("chats")),
-    c(db().collection("reports").where("status", "==", "open")),
-    c(users.where("review", "==", true)),
-    c(users.where("banned", "==", true)),
-    c(db().collection("errors").where("at", ">=", ago(24)))
-  ]);
-  return {
-    users: total,
-    active24h: day,
-    active7d: week,
-    pigeons24h: pigeonsDay,
-    pigeons7d: pigeonsWeek,
-    catchRate7d: pigeonsWeek ? Math.round(caughtWeek / pigeonsWeek * 100) : 0,
-    chats,
-    openReports,
-    review,
-    banned,
-    errors24h: errorsDay
-  };
-});
-async function nameOf(uid) {
-  const p = (await db().doc(`profiles/${uid}`).get()).data();
-  return { uid, name: p?.name ?? "?", country: p?.countryName ?? "", photoUrl: p?.photoUrl ?? "" };
-}
-var adminReports = onCall(async (req) => {
-  await need(req, "reviewer");
-  const status = ["open", "actioned", "dismissed", "all"].includes(req.data?.status) ? req.data.status : "open";
-  const q = await db().collection("reports").orderBy("at", "desc").limit(300).get();
-  const rows = q.docs.map((d) => ({ id: d.id, ...d.data() })).filter((r2) => status === "all" || (r2.status ?? "open") === status).slice(0, 100);
-  const week = Date.now() - 7 * 864e5;
-  const counts = {};
-  for (const d of q.docs) {
-    const r2 = d.data();
-    if (ms(r2.at) >= week) counts[r2.target] = (counts[r2.target] ?? 0) + 1;
-  }
-  const ids = [...new Set(rows.flatMap((r2) => [r2.by, r2.target]))];
-  const names = Object.fromEntries(await Promise.all(ids.map(async (id) => [id, await nameOf(id)])));
-  const flagged = await db().collection("users").where("review", "==", true).limit(50).get();
-  return {
-    reports: rows.map((r2) => ({
-      id: r2.id,
-      reason: r2.reason,
-      note: r2.note ?? "",
-      chatId: r2.chatId ?? "",
-      status: r2.status ?? "open",
-      at: ms(r2.at),
-      by: names[r2.by],
-      target: names[r2.target],
-      weekCount: counts[r2.target] ?? 0
-    })),
-    review: await Promise.all(flagged.docs.map(async (d) => ({ ...await nameOf(d.id), reason: d.data().reviewReason ?? "", at: ms(d.data().reviewAt) })))
-  };
-});
-var adminUser = onCall(async (req) => {
-  await need(req, "reviewer");
-  const uid = String(req.data?.uid ?? "");
-  const u = (await db().doc(`users/${uid}`).get()).data();
-  if (!u) throw new HttpsError("not-found", "not_found");
-  const reports = await db().collection("reports").where("target", "==", uid).limit(50).get();
-  return {
-    ...await nameOf(uid),
-    lang: u.lang,
-    createdAt: ms(u.createdAt),
-    lastActive: ms(u.lastActive),
-    banned: !!u.banned,
-    review: !!u.review,
-    restrictedUntil: ms(u.restrictedUntil),
-    warnings: (u.warnings ?? []).length,
-    reports: reports.docs.map((d) => ({ id: d.id, reason: d.data().reason, at: ms(d.data().at), status: d.data().status ?? "open" }))
-  };
-});
-var adminChat = onCall(async (req) => {
-  const me = await need(req, "mod");
-  const reportId = String(req.data?.reportId ?? "");
-  const rep = (await db().doc(`reports/${reportId}`).get()).data();
-  if (!rep?.chatId) throw new HttpsError("failed-precondition", "no_chat_in_report");
-  const chat = (await db().doc(`chats/${rep.chatId}`).get()).data();
-  if (!chat) throw new HttpsError("not-found", "chat_gone");
-  const m = await db().collection(`chats/${rep.chatId}/messages`).orderBy("at", "desc").limit(100).get();
-  await log(me, "view_chat", { reportId, chatId: rep.chatId, target: rep.target });
-  return {
-    members: await Promise.all(chat.members.map(nameOf)),
-    messages: m.docs.reverse().map((d) => {
-      const x = d.data();
-      return { id: d.id, from: x.from, text: x.deleted ? "" : x.text ?? "", deleted: !!x.deleted, media: x.media?.kind ?? null, at: ms(x.at), system: x.system ?? null };
-    })
-  };
-});
-var ACTIONS = ["warn", "restrict", "unrestrict", "suspend", "unsuspend", "dismiss", "clear_review"];
-var adminAction = onCall(async (req) => {
-  const me = await need(req, "mod");
-  const action = String(req.data?.action ?? "");
-  if (!ACTIONS.includes(action)) throw new HttpsError("invalid-argument", "bad_action");
-  const uid = String(req.data?.uid ?? "");
-  const reportId = req.data?.reportId ? String(req.data.reportId) : "";
-  const note = normalize(req.data?.note).slice(0, 300);
-  const ref = db().doc(`users/${uid}`);
-  if (action !== "dismiss" && !(await ref.get()).exists) throw new HttpsError("not-found", "not_found");
-  const now = import_firestore.Timestamp.now();
-  let extra = {};
-  switch (action) {
-    case "warn":
-      await ref.update({ warnings: import_firestore.FieldValue.arrayUnion({ at: now, note }), notice: { kind: "warn", note, at: now } });
-      break;
-    case "restrict": {
-      const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 1)));
-      const until = import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5);
-      await ref.update({ restrictedUntil: until, notice: { kind: "restrict", note, at: now, until } });
-      extra = { days };
-      break;
-    }
-    case "unrestrict":
-      await ref.update({ restrictedUntil: import_firestore.FieldValue.delete(), notice: import_firestore.FieldValue.delete() });
-      break;
-    case "suspend":
-      await ref.update({ banned: true, receiving: false, bannedAt: now, banReason: "moderator", review: false });
-      break;
-    case "unsuspend":
-      await ref.update({ banned: false, receiving: true, banReason: import_firestore.FieldValue.delete(), review: false });
-      break;
-    case "clear_review":
-      await ref.update({ review: false });
-      break;
-    case "dismiss":
-      break;
-  }
-  if (reportId) await db().doc(`reports/${reportId}`).update({ status: action === "dismiss" ? "dismissed" : "actioned", handledBy: me.uid, handledAt: now });
-  await log(me, action, { target: uid, reportId, note, ...extra });
-  return { ok: true };
-});
-var adminLog = onCall(async (req) => {
-  await need(req, "mod");
-  const q = await db().collection("adminLog").orderBy("at", "desc").limit(200).get();
-  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })) };
-});
-var adminErrors = onCall(async (req) => {
-  await need(req, "admin");
-  const q = await db().collection("errors").orderBy("at", "desc").limit(200).get();
-  return { rows: q.docs.map((d) => ({ id: d.id, ...d.data(), at: ms(d.data().at) })), backups: listBackups() };
-});
-var adminSetRole = onCall(async (req) => {
-  const me = await need(req, "admin");
-  const email = String(req.data?.email ?? "").trim().toLowerCase();
-  const role = req.data?.role == null || req.data.role === "" ? null : String(req.data.role);
-  if (role && !ROLES.includes(role)) throw new HttpsError("invalid-argument", "bad_role");
-  const user = await (0, import_auth2.getAuth)().getUserByEmail(email).catch(() => null);
-  if (!user) throw new HttpsError("not-found", "no_such_account");
-  if (user.uid === me.uid) throw new HttpsError("failed-precondition", "not_yourself");
-  if (role) await db().doc(`admins/${user.uid}`).set({ role, email, at: import_firestore.Timestamp.now(), by: me.uid });
-  else await db().doc(`admins/${user.uid}`).delete();
-  await log(me, "set_role", { target: user.uid, email, role });
-  return { ok: true };
-});
-var adminRoles = onCall(async (req) => {
-  await need(req, "admin");
-  const q = await db().collection("admins").get();
-  return { rows: q.docs.map((d) => ({ uid: d.id, email: d.data().email, role: d.data().role })) };
-});
-var adminAnnounce = onCall(async (req) => {
-  const me = await need(req, "admin");
-  const text = normalize(req.data?.text).slice(0, 200);
-  const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 3)));
-  const ref = db().doc("config/announcement");
-  if (!text) await ref.set({ active: false, at: import_firestore.Timestamp.now() });
-  else {
-    const { src, tr } = await translateAll(text, [...LANGS]);
-    await ref.set({ active: true, text, src, tr, at: import_firestore.Timestamp.now(), until: import_firestore.Timestamp.fromMillis(Date.now() + days * 864e5) });
-  }
-  await log(me, "announce", { text, days });
-  return { ok: true };
-});
-
 // src/index.ts
 var handlers = {
   initUser,
@@ -1827,6 +1976,7 @@ var handlers = {
   markDelivered,
   deleteMessage,
   setChatTtl,
+  deleteChat,
   startCall,
   answerCall,
   endCall,
@@ -1846,7 +1996,14 @@ var handlers = {
   adminErrors,
   adminSetRole,
   adminRoles,
-  adminAnnounce
+  adminAnnounce,
+  adminGrant,
+  adminFind,
+  supportSend,
+  supportRead,
+  adminSupportList,
+  adminSupportThread,
+  adminSupportReply
 };
 
 // src/limits.ts
@@ -1865,6 +2022,8 @@ var CALL_LIMITS = {
   avatar: [10, 3600],
   logError: [30, 3600],
   deleteMessage: [60, 600],
+  deleteChat: [30, 600],
+  supportSend: [20, 3600],
   setChatTtl: [20, 3600],
   countryFact: [60, 3600],
   adminChat: [60, 3600]

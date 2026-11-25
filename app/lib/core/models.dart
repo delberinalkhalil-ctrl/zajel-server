@@ -52,6 +52,8 @@ class Me {
   int get points => (d['points'] as num?)?.toInt() ?? 0;
   DateTime? get vipUntil => _ts(d['vipUntil']);
   DateTime? get createdAt => _ts(d['createdAt']);
+  /// Extra pigeons given by the Zajel team, used after the daily free ones.
+  int get giftPigeons => (d['giftPigeons'] as num?)?.toInt() ?? 0;
   bool get vip => vipUntil != null && vipUntil!.isAfter(DateTime.now());
   int get freeToday =>
       _s(d['freeDate']) == todayUtc() ? ((d['freeLeft'] as num?)?.toInt() ?? 0) : (Cfg.storeEnabled ? Cfg.freePerDay : Cfg.freeModeDailyPigeons);
@@ -146,6 +148,10 @@ class ChatInfo {
 
   List<String> get members => (d['members'] as List?)?.map((e) => e.toString()).toList() ?? const [];
   String other(String me) => members.firstWhere((m) => m != me, orElse: () => '');
+  /// I deleted this conversation (it comes back when a new message arrives).
+  bool hiddenFor(String me) => (d['hiddenFor'] as List?)?.contains(me) ?? false;
+  /// Messages up to this time were deleted on my side.
+  DateTime? clearedAt(String me) => _ts((d['clearedAt'] as Map?)?[me]);
   int unread(String uid) => ((d['unread'] as Map?)?[uid] as num?)?.toInt() ?? 0;
   DateTime? readAt(String uid) => _ts((d['readAt'] as Map?)?[uid]);
   DateTime? deliveredAt(String uid) => _ts((d['deliveredAt'] as Map?)?[uid]);
@@ -240,4 +246,17 @@ class Countries {
   }
 
   static List<Country> sorted(String lang) => [...all]..sort((a, b) => a.name(lang).compareTo(b.name(lang)));
+}
+
+
+/// One message in the conversation with the Zajel team.
+class SupportMsg {
+  SupportMsg(this.id, this.d);
+  final String id;
+  final Map<String, dynamic> d;
+  bool get mine => d['from'] == 'user';
+  String get text => _s(d['text']);
+  Map<String, String> get tr => (d['tr'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {};
+  String textFor(String lang) => tr[lang] ?? text;
+  DateTime? get at => _ts(d['at']);
 }

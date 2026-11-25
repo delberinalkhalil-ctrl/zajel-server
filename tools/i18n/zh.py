@@ -448,3 +448,22 @@ T.update({
 "time_left": "还剩 {h} 小时，之后它会飞向别人",
 "landed_toast": "一只新信鸽落在你这里",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "删除",
+"delete_chat": "删除对话",
+"delete_chat_q": "删除与 {name} 的对话？",
+"delete_chat_body": "该对话及其消息将从你这里消失。如果对方再次来信，对话会带着新消息重新出现。",
+"chat_deleted": "对话已删除",
+"team_chat": "Zajel 团队",
+"team_chat_sub": "问题、故障与建议",
+"team_chat_hint": "我们用你的语言回复",
+"team_chat_empty": "有任何问题、故障或建议都可以写给我们，Zajel 团队会在这里用你的语言回复。",
+"team_chat_write": "写信给 Zajel 团队",
+"gift_left": "+{n} 赠送",
+"gift_title": "来自 Zajel 团队的礼物 🎁",
+"gift_pigeons": "额外 {n} 只信鸽，在今日免费额度用完后使用",
+"gift_vip": "VIP {n} 天",
+"gift_points": "{n} 积分",
+})

@@ -448,3 +448,22 @@ T.update({
 "time_left": "{h} h left before it flies on",
 "landed_toast": "A new pigeon has landed with you",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "Delete",
+"delete_chat": "Delete conversation",
+"delete_chat_q": "Delete the conversation with {name}?",
+"delete_chat_body": "The conversation and its messages will disappear for you. If they write to you again, it comes back with the new messages only.",
+"chat_deleted": "Conversation deleted",
+"team_chat": "Zajel team",
+"team_chat_sub": "Questions, problems and ideas",
+"team_chat_hint": "We reply in your language",
+"team_chat_empty": "Write us any question, problem or idea, and the Zajel team will answer here in your language.",
+"team_chat_write": "Write to the Zajel team",
+"gift_left": "+{n} gift",
+"gift_title": "A gift from the Zajel team 🎁",
+"gift_pigeons": "{n} extra pigeons, used after today’s free ones",
+"gift_vip": "VIP for {n} days",
+"gift_points": "{n} points",
+})

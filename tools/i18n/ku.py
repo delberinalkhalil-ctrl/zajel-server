@@ -448,3 +448,22 @@ T.update({
 "time_left": "{h} saet maye berî ku bifire cem yekî din",
 "landed_toast": "Kevokeke nû li cem te daket",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "Jê bibe",
+"delete_chat": "Axaftinê jê bibe",
+"delete_chat_q": "Axaftina bi {name} re jê bibî?",
+"delete_chat_body": "Axaftin û peyamên wê ji cem te winda dibin. Ger ew dîsa binivîse, axaftin tenê bi peyamên nû vedigere.",
+"chat_deleted": "Axaftin hat jêbirin",
+"team_chat": "Tîma Zajel",
+"team_chat_sub": "Pirs, pirsgirêk û pêşniyar",
+"team_chat_hint": "Em bi zimanê te bersiv didin",
+"team_chat_empty": "Her pirs, pirsgirêk an pêşniyarê ji me re binivîse; tîma Zajel dê li vir bi zimanê te bersiv bide.",
+"team_chat_write": "Ji tîma Zajel re binivîse",
+"gift_left": "+{n} diyarî",
+"gift_title": "Diyariyek ji tîma Zajel 🎁",
+"gift_pigeons": "{n} kevokên zêde, piştî yên belaş ên îro",
+"gift_vip": "VIP ji bo {n} rojan",
+"gift_points": "{n} xal",
+})

@@ -5,7 +5,8 @@
 // announcements, errors and backups). An account is an admin if its verified email is in ADMIN_EMAILS
 // (default: the app owner's email), or by a role in admins/{uid} given from the admin page.
 import { getAuth } from 'firebase-admin/auth';
-import { db, FieldValue, requireUid, Timestamp, UserDoc } from './common';
+import { db, FieldValue, isVip, requireUid, Timestamp, UserDoc } from './common';
+import { pushTo, fmt } from './notify';
 import { env, HttpsError, onCall } from './runtime';
 import { normalize } from './moderation';
 import { listBackups } from './backup';
@@ -28,14 +29,14 @@ export async function roleOf(uid: string): Promise<{ role: Role | null; email: s
   return { role: r && r in RANK ? r : null, email };
 }
 
-async function need(req: { auth?: { uid: string } }, min: Role) {
+export async function needRole(req: { auth?: { uid: string } }, min: Role) {
   const uid = requireUid(req as any);
   const { role, email } = await roleOf(uid);
   if (!role || RANK[role] < RANK[min]) throw new HttpsError('permission-denied', 'not_admin');
   return { uid, role: role!, email };
 }
 
-async function log(by: { uid: string; email: string }, action: string, extra: Record<string, unknown>) {
+export async function logAdmin(by: { uid: string; email: string }, action: string, extra: Record<string, unknown>) {
   await db().collection('adminLog').add({ by: by.uid, email: by.email, action, ...extra, at: Timestamp.now() });
 }
 
@@ -50,7 +51,7 @@ export const adminMe = onCall(async req => {
 
 /** Headline numbers. Uses count queries, which cost one read per 1,000 documents. */
 export const adminStats = onCall(async req => {
-  await need(req, 'reviewer');
+  await needRole(req, 'reviewer');
   const c = (q: FirebaseFirestore.Query) => q.count().get().then(s => s.data().count);
   const users = db().collection('users'), pigeons = db().collection('pigeons');
   const [total, day, week, pigeonsDay, pigeonsWeek, caughtWeek, chats, openReports, review, banned, errorsDay] = await Promise.all([
@@ -68,14 +69,14 @@ export const adminStats = onCall(async req => {
   };
 });
 
-async function nameOf(uid: string) {
+export async function nameOf(uid: string) {
   const p = (await db().doc(`profiles/${uid}`).get()).data();
   return { uid, name: p?.name ?? '?', country: p?.countryName ?? '', photoUrl: p?.photoUrl ?? '' };
 }
 
 /** Open (or all) reports, newest first, with names and how often each person was reported this week. */
 export const adminReports = onCall(async req => {
-  await need(req, 'reviewer');
+  await needRole(req, 'reviewer');
   const status = ['open', 'actioned', 'dismissed', 'all'].includes(req.data?.status) ? req.data.status : 'open';
   const q = await db().collection('reports').orderBy('at', 'desc').limit(300).get();
   const rows = q.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter(r => status === 'all' || (r.status ?? 'open') === status).slice(0, 100);
@@ -96,7 +97,7 @@ export const adminReports = onCall(async req => {
 
 /** Account details a moderator needs to decide: status, warnings, restriction, report history. */
 export const adminUser = onCall(async req => {
-  await need(req, 'reviewer');
+  await needRole(req, 'reviewer');
   const uid = String(req.data?.uid ?? '');
   const u = (await db().doc(`users/${uid}`).get()).data() as UserDoc | undefined;
   if (!u) throw new HttpsError('not-found', 'not_found');
@@ -104,20 +105,21 @@ export const adminUser = onCall(async req => {
   return {
     ...(await nameOf(uid)), lang: u.lang, createdAt: ms(u.createdAt), lastActive: ms(u.lastActive),
     banned: !!u.banned, review: !!u.review, restrictedUntil: ms(u.restrictedUntil), warnings: (u.warnings ?? []).length,
+    giftPigeons: u.giftPigeons ?? 0, points: u.points ?? 0, vipUntil: isVip(u) ? ms(u.vipUntil) : null,
     reports: reports.docs.map(d => ({ id: d.id, reason: d.data().reason, at: ms(d.data().at), status: d.data().status ?? 'open' })),
   };
 });
 
 /** Opens a reported conversation. Only for a report that names this chat; always logged with the report id. */
 export const adminChat = onCall(async req => {
-  const me = await need(req, 'mod');
+  const me = await needRole(req, 'mod');
   const reportId = String(req.data?.reportId ?? '');
   const rep = (await db().doc(`reports/${reportId}`).get()).data();
   if (!rep?.chatId) throw new HttpsError('failed-precondition', 'no_chat_in_report');
   const chat = (await db().doc(`chats/${rep.chatId}`).get()).data();
   if (!chat) throw new HttpsError('not-found', 'chat_gone');
   const m = await db().collection(`chats/${rep.chatId}/messages`).orderBy('at', 'desc').limit(100).get();
-  await log(me, 'view_chat', { reportId, chatId: rep.chatId, target: rep.target });
+  await logAdmin(me, 'view_chat', { reportId, chatId: rep.chatId, target: rep.target });
   return {
     members: await Promise.all((chat.members as string[]).map(nameOf)),
     messages: m.docs.reverse().map(d => {
@@ -131,7 +133,7 @@ const ACTIONS = ['warn', 'restrict', 'unrestrict', 'suspend', 'unsuspend', 'dism
 
 /** Moderator actions. The person is told about warnings and restrictions in the app. */
 export const adminAction = onCall(async req => {
-  const me = await need(req, 'mod');
+  const me = await needRole(req, 'mod');
   const action = String(req.data?.action ?? '') as (typeof ACTIONS)[number];
   if (!ACTIONS.includes(action)) throw new HttpsError('invalid-argument', 'bad_action');
   const uid = String(req.data?.uid ?? '');
@@ -159,25 +161,25 @@ export const adminAction = onCall(async req => {
     case 'dismiss': break;
   }
   if (reportId) await db().doc(`reports/${reportId}`).update({ status: action === 'dismiss' ? 'dismissed' : 'actioned', handledBy: me.uid, handledAt: now });
-  await log(me, action, { target: uid, reportId, note, ...extra });
+  await logAdmin(me, action, { target: uid, reportId, note, ...extra });
   return { ok: true };
 });
 
 export const adminLog = onCall(async req => {
-  await need(req, 'mod');
+  await needRole(req, 'mod');
   const q = await db().collection('adminLog').orderBy('at', 'desc').limit(200).get();
   return { rows: q.docs.map(d => ({ id: d.id, ...d.data(), at: ms(d.data().at) })) };
 });
 
 export const adminErrors = onCall(async req => {
-  await need(req, 'admin');
+  await needRole(req, 'admin');
   const q = await db().collection('errors').orderBy('at', 'desc').limit(200).get();
   return { rows: q.docs.map(d => ({ id: d.id, ...d.data(), at: ms(d.data().at) })), backups: listBackups() };
 });
 
 /** Gives or removes a role, by the person's sign-in email. */
 export const adminSetRole = onCall(async req => {
-  const me = await need(req, 'admin');
+  const me = await needRole(req, 'admin');
   const email = String(req.data?.email ?? '').trim().toLowerCase();
   const role = req.data?.role == null || req.data.role === '' ? null : String(req.data.role) as Role;
   if (role && !ROLES.includes(role)) throw new HttpsError('invalid-argument', 'bad_role');
@@ -186,19 +188,19 @@ export const adminSetRole = onCall(async req => {
   if (user.uid === me.uid) throw new HttpsError('failed-precondition', 'not_yourself');
   if (role) await db().doc(`admins/${user.uid}`).set({ role, email, at: Timestamp.now(), by: me.uid });
   else await db().doc(`admins/${user.uid}`).delete();
-  await log(me, 'set_role', { target: user.uid, email, role });
+  await logAdmin(me, 'set_role', { target: user.uid, email, role });
   return { ok: true };
 });
 
 export const adminRoles = onCall(async req => {
-  await need(req, 'admin');
+  await needRole(req, 'admin');
   const q = await db().collection('admins').get();
   return { rows: q.docs.map(d => ({ uid: d.id, email: d.data().email, role: d.data().role })) };
 });
 
 /** Banner shown at the top of the app until `days` have passed, or until cleared with empty text. */
 export const adminAnnounce = onCall(async req => {
-  const me = await need(req, 'admin');
+  const me = await needRole(req, 'admin');
   const text = normalize(req.data?.text).slice(0, 200);
   const days = Math.max(1, Math.min(30, Math.round(Number(req.data?.days) || 3)));
   const ref = db().doc('config/announcement');
@@ -207,6 +209,58 @@ export const adminAnnounce = onCall(async req => {
     const { src, tr } = await translateAll(text, [...LANGS]);
     await ref.set({ active: true, text, src, tr, at: Timestamp.now(), until: Timestamp.fromMillis(Date.now() + days * 864e5) });
   }
-  await log(me, 'announce', { text, days });
+  await logAdmin(me, 'announce', { text, days });
   return { ok: true };
+});
+
+/** Finds accounts by sign-in email, by name (start of the name), or by id. */
+export const adminFind = onCall(async req => {
+  await needRole(req, 'reviewer');
+  const q = normalize(req.data?.q).trim();
+  if (q.length < 2) return { rows: [] };
+  const ids = new Set<string>();
+  if (q.includes('@')) { const a = await getAuth().getUserByEmail(q.toLowerCase()).catch(() => null); if (a) ids.add(a.uid); }
+  else if (/^[A-Za-z0-9]{20,40}$/.test(q) && (await db().doc(`users/${q}`).get()).exists) ids.add(q);
+  else {
+    const byName = await db().collection('profiles').where('name', '>=', q).where('name', '<', q + '\uf8ff').limit(20).get();
+    byName.docs.forEach(d => ids.add(d.id));
+  }
+  return { rows: await Promise.all([...ids].map(nameOf)) };
+});
+
+/**
+ * Gifts for an account: extra pigeons (used after the daily free ones), points, or VIP days (added on top of any
+ * VIP time left; 0 days with revoke ends VIP now). Moderators and admins; logged, and the person is told in the app.
+ */
+export const adminGrant = onCall(async req => {
+  const me = await needRole(req, 'mod');
+  const uid = String(req.data?.uid ?? '');
+  const ref = db().doc(`users/${uid}`);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'not_found');
+  const u = snap.data() as UserDoc;
+  const int = (v: unknown, max: number) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+  const pigeons = int(req.data?.pigeons, 500), points = int(req.data?.points, 100000), vipDays = int(req.data?.vipDays, 365);
+  const revokeVip = req.data?.revokeVip === true;
+  if (!pigeons && !points && !vipDays && !revokeVip) throw new HttpsError('invalid-argument', 'nothing_to_grant');
+  const now = Date.now();
+  const upd: Record<string, unknown> = {};
+  if (pigeons) upd.giftPigeons = FieldValue.increment(pigeons);
+  if (points) upd.points = FieldValue.increment(points);
+  let vipUntil: Timestamp | null = null;
+  if (revokeVip) { upd.vipUntil = Timestamp.fromMillis(now); upd.vipActive = false; }
+  else if (vipDays) {
+    const from = isVip(u) ? u.vipUntil!.toMillis() : now;
+    vipUntil = Timestamp.fromMillis(from + vipDays * 864e5);
+    upd.vipUntil = vipUntil; upd.vipActive = true;
+  }
+  const note = normalize(req.data?.note).slice(0, 200);
+  if (pigeons || points || vipDays) upd.notice = { kind: 'gift', pigeons, points, vipDays, note, at: Timestamp.now() };
+  await ref.update(upd);
+  if (revokeVip || vipDays) await db().doc(`profiles/${uid}`).set({ vip: !revokeVip }, { merge: true });
+  await logAdmin(me, 'grant', { target: uid, pigeons, points, vipDays, revokeVip, note });
+  if (pigeons || points || vipDays) {
+    await pushTo(uid, { title: fmt(u.lang, 'gift_t'), body: fmt(u.lang, 'gift_b'), data: { type: 'gift' } }, 'system').catch(() => undefined);
+  }
+  return { ok: true, vipUntil: vipUntil ? vipUntil.toMillis() : null };
 });

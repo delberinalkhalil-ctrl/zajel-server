@@ -33,6 +33,15 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.to == me() || resource.data.from == me() || me() in resource.data.members);
       allow write: if false;
     }
+    // The person's own conversation with the Zajel team (written by the server only).
+    match /support/{uid} {
+      allow read: if signedIn() && uid == me();
+      allow write: if false;
+      match /messages/{mid} {
+        allow read: if signedIn() && uid == me();
+        allow write: if false;
+      }
+    }
     // Banner text set from the admin page.
     match /config/announcement {
       allow read: if signedIn();

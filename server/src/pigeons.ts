@@ -130,11 +130,14 @@ export const sendPigeon = onCall(async req => {
     const vip = isVip(u);
     const freeLeft = u.freeDate === todayUtc() ? (u.freeLeft ?? 0) : FREE_PIGEONS_PER_DAY;
     const useFree = !vip && freeLeft > 0;
-    charged = (vip || useFree ? 0 : COST.extra) + (want && !vip ? COST.dest : 0) + (fast ? COST.fast : 0);
-    if (FREE_MODE && !useFree && !vip) fail('daily_limit');
+    // Gift pigeons from a moderator are used once the day's free ones run out.
+    const useGift = !vip && !useFree && (u.giftPigeons ?? 0) > 0;
+    charged = (vip || useFree || useGift ? 0 : COST.extra) + (want && !vip ? COST.dest : 0) + (fast ? COST.fast : 0);
+    if (FREE_MODE && !useFree && !useGift && !vip) fail('daily_limit');
     if (u.points < charged) fail('no_points');
     tx.update(userRef, {
       points: FieldValue.increment(-charged), freeDate: todayUtc(), freeLeft: useFree ? freeLeft - 1 : freeLeft, lastActive: Timestamp.now(),
+      ...(useGift ? { giftPigeons: FieldValue.increment(-1) } : {}),
     });
     pigeon = {
       from: uid, fromLang: u.lang, fromName: u.name, fromCity: publicCity(u), fromCountry: u.country, fromCountryName: u.countryName ?? '', fromLoc: u.loc,

@@ -19,6 +19,7 @@ import 'inbox_screen.dart';
 import 'settings_screen.dart';
 import 'sky_screen.dart';
 import 'store_screen.dart';
+import 'support_screen.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -30,6 +31,8 @@ class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
   late final Stream<List<Pigeon>> _inbox = Api.inbox();
   Set<String>? _seenLetters;
+  int _supportUnread = 0;
+  StreamSubscription<int>? _supportSub;
 
   /// A new letter landed while the app is open: a double tap of vibration and a short note (not on first load).
   void _onInbox(List<Pigeon>? list) {
@@ -63,6 +66,9 @@ class _HomeShellState extends State<HomeShell> {
     if (Cfg.storeEnabled) context.read<Billing>().start();
     _listenCalls();
     _delivered = Api.chats().listen(_markDelivered, onError: (_) {});
+    _supportSub = Api.supportUnread().listen((n) {
+      if (mounted && n != _supportUnread) setState(() => _supportUnread = n);
+    }, onError: (_) {});
     Push.pending.addListener(_onPush);
     // Lets the people I chat with see my local time.
     Api.call('updateProfile', {'tz': DateTime.now().timeZoneOffset.inMinutes}).ignore();
@@ -72,6 +78,7 @@ class _HomeShellState extends State<HomeShell> {
   void dispose() {
     _calls?.cancel();
     _delivered?.cancel();
+    _supportSub?.cancel();
     Push.pending.removeListener(_onPush);
     super.dispose();
   }
@@ -118,6 +125,8 @@ class _HomeShellState extends State<HomeShell> {
         if (id != null) Navigator.of(context).push(MaterialPageRoute(builder: (_) => ChatScreen(chatId: id)));
       case 'pigeon':
         setState(() => _tab = 1);
+      case 'support':
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SupportScreen()));
       default:
         break;
     }
@@ -135,6 +144,25 @@ class _HomeShellState extends State<HomeShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final note = '${n['note'] ?? ''}';
+      if (n['kind'] == 'gift') {
+        int v(String k) => (n[k] as num?)?.toInt() ?? 0;
+        await showDialog<void>(
+          context: context,
+          builder: (c) => AlertDialog(
+            icon: const Icon(Icons.card_giftcard, color: kGold, size: 44),
+            title: Text(c.t('gift_title')),
+            content: Text([
+              if (v('pigeons') > 0) c.t('gift_pigeons', {'n': v('pigeons')}),
+              if (v('vipDays') > 0) c.t('gift_vip', {'n': v('vipDays')}),
+              if (v('points') > 0) c.t('gift_points', {'n': v('points')}),
+              if (note.isNotEmpty) '«$note»',
+            ].join('\n'), style: const TextStyle(height: 1.7)),
+            actions: [FilledButton(onPressed: () => Navigator.pop(c), child: Text(c.t('ok')))],
+          ),
+        );
+        Api.call('ackNotice').ignore();
+        return;
+      }
       await showDialog<void>(
         context: context,
         builder: (c) => AlertDialog(
@@ -203,7 +231,7 @@ class _HomeShellState extends State<HomeShell> {
           builder: (_, chats) {
             final nIn = inbox.data?.length ?? 0;
             _onInbox(inbox.data);
-            final nCh = (chats.data ?? const <ChatInfo>[]).fold<int>(0, (a, c) => a + c.unread(Api.uid));
+            final nCh = (chats.data ?? const <ChatInfo>[]).fold<int>(0, (a, c) => a + c.unread(Api.uid)) + _supportUnread;
             return FloatingNav(
               index: _tab,
               onTap: go,

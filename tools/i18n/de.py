@@ -448,3 +448,22 @@ T.update({
 "time_left": "Noch {h} Std., bevor sie weiterfliegt",
 "landed_toast": "Eine neue Taube ist bei dir gelandet",
 })
+
+# team chat, delete chat, gifts
+T.update({
+"delete": "Löschen",
+"delete_chat": "Unterhaltung löschen",
+"delete_chat_q": "Unterhaltung mit {name} löschen?",
+"delete_chat_body": "Die Unterhaltung und ihre Nachrichten verschwinden bei dir. Schreibt die Person wieder, kommt sie nur mit den neuen Nachrichten zurück.",
+"chat_deleted": "Unterhaltung gelöscht",
+"team_chat": "Zajel-Team",
+"team_chat_sub": "Fragen, Probleme und Ideen",
+"team_chat_hint": "Wir antworten in deiner Sprache",
+"team_chat_empty": "Schreib uns jede Frage, jedes Problem oder jede Idee – das Zajel-Team antwortet hier in deiner Sprache.",
+"team_chat_write": "An das Zajel-Team schreiben",
+"gift_left": "+{n} geschenkt",
+"gift_title": "Ein Geschenk vom Zajel-Team 🎁",
+"gift_pigeons": "{n} zusätzliche Tauben, nach den kostenlosen des Tages",
+"gift_vip": "VIP für {n} Tage",
+"gift_points": "{n} Punkte",
+})

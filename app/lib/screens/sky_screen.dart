@@ -196,9 +196,12 @@ class _SkyScreenState extends State<SkyScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: kParchmentDark, borderRadius: BorderRadius.circular(99)),
                           child: Text(
-                            !Cfg.storeEnabled
-                                ? context.t('free_left_free', {'n': me.freeToday, 'max': Cfg.freeModeDailyPigeons})
-                                : me.vip ? context.t('vip_unlimited') : context.t('free_left', {'n': me.freeToday, 'max': Cfg.freePerDay, 'cost': Cfg.costExtra}),
+                            [
+                              !Cfg.storeEnabled
+                                  ? context.t('free_left_free', {'n': me.freeToday, 'max': Cfg.freeModeDailyPigeons})
+                                  : me.vip ? context.t('vip_unlimited') : context.t('free_left', {'n': me.freeToday, 'max': Cfg.freePerDay, 'cost': Cfg.costExtra}),
+                              if (me.giftPigeons > 0 && !me.vip) context.t('gift_left', {'n': me.giftPigeons}),
+                            ].join(' · '),
                             maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
                             style: const TextStyle(fontSize: 11, color: kInkSoft),
                           ),

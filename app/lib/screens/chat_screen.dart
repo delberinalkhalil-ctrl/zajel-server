@@ -309,6 +309,17 @@ class _ChatScreenState extends State<ChatScreen> {
       } catch (e) {
         if (mounted) showError(context, e);
       }
+    } else if (action == 'delete_chat') {
+      final ok = await _confirm(context.t('delete_chat_q', {'name': other.name}), context.t('delete_chat_body'));
+      if (ok != true) return;
+      try {
+        await Api.call('deleteChat', {'chatId': widget.chatId});
+        if (!mounted) return;
+        showInfo(context, context.t('chat_deleted'));
+        Navigator.of(context).maybePop();
+      } catch (e) {
+        if (mounted) showError(context, e);
+      }
     } else if (action == 'ttl') {
       await _setTtl(_chatNow?.ttlH ?? 0);
     } else if (action == 'search') {
@@ -386,6 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       PopupMenuItem(value: 'search', child: Text(c.t('search_chat'))),
                       PopupMenuItem(value: 'ttl', child: Text(c.t('ttl_title'))),
                       PopupMenuItem(value: 'report', child: Text(c.t('report'))),
+                      PopupMenuItem(value: 'delete_chat', child: Text(c.t('delete_chat'), style: const TextStyle(color: kRed))),
                       PopupMenuItem(value: 'block', child: Text(c.t('block'))),
                     ],
                   ),
@@ -431,7 +443,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: StreamBuilder<List<Msg>>(
                     stream: _msgs,
                     builder: (context, ms) {
-                      final all = ms.data ?? const <Msg>[];
+                      final cleared = _chatNow?.clearedAt(Api.uid);
+                      final all = (ms.data ?? const <Msg>[]).where((m) => cleared == null || (m.at ?? DateTime.now()).isAfter(cleared)).toList();
                       WidgetsBinding.instance.addPostFrameCallback((_) => _markRead(all));
                       final q = _search.text.trim().toLowerCase();
                       final msgs = !_searching || q.isEmpty

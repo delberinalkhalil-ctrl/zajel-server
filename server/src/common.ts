@@ -25,6 +25,8 @@ export interface UserDoc extends DocumentData {
   city: string;
   loc: { lat: number; lon: number };
   points: number;
+  /** Extra pigeons given by a moderator, used after the daily free ones. */
+  giftPigeons?: number;
   vipUntil?: Timestamp | null;
   vipActive?: boolean;
   freeDate?: string;

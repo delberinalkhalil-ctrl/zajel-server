@@ -49,6 +49,7 @@ export const sendMessage = onCall(async req => {
   const { src, tr } = text ? await translateAll(text, [me.lang, them!.lang], me.lang) : { src: me.lang, tr: {} as Record<string, string> };
   const now = Timestamp.now();
   const label = media ? mediaLabel(media.kind as MediaKind, String(media.name ?? '')) : '';
+  if ((c.hiddenFor ?? []).length) await ref.update({ hiddenFor: [] });
   const ttlH = Number(c.ttlH) || 0;
   await ref.collection('messages').add({
     from: uid, text, src, tr, at: now, ...(media ? { media } : {}), ...(replyTo ? { replyTo } : {}),
@@ -100,6 +101,28 @@ export const setChatTtl = onCall(async req => {
   await ref.update({ ttlH: hours, ttlBy: uid, updatedAt: now, ...(hours ? { ttlEver: true } : {}) });
   await ref.collection('messages').add({ from: uid, text: '', tr: {}, at: now, system: 'ttl', hours });
   return { ok: true };
+});
+
+/**
+ * Deletes the conversation for me: it leaves my list and its history is hidden from me. If the other person writes
+ * again it comes back, starting from that message. When both people have deleted it, it is removed for good.
+ */
+export const deleteChat = onCall(async req => {
+  const uid = requireUid(req);
+  const { ref, c } = await memberChat(uid, String(req.data?.chatId ?? ''));
+  const hidden = new Set<string>([...(c.hiddenFor ?? []), uid]);
+  const everyone = (c.members as string[]).every(m => hidden.has(m));
+  if (!everyone) {
+    await ref.update({ hiddenFor: FieldValue.arrayUnion(uid), [`clearedAt.${uid}`]: Timestamp.now() });
+    return { ok: true };
+  }
+  for (;;) { // both deleted it: remove the messages, then the chat
+    const page = await ref.collection('messages').limit(400).get();
+    if (page.empty) break;
+    const b = db().batch(); page.docs.forEach(d => b.delete(d.ref)); await b.commit();
+  }
+  await ref.delete();
+  return { ok: true, removed: true };
 });
 
 /** Hourly: removes messages whose disappearing time has passed, in chats that use it. */
